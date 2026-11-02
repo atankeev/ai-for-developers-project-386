@@ -8,3 +8,17 @@
 - API меняется сначала в `packages/api/main.tsp`, затем выполняется `mise run generate`. Файлы `packages/api/generated/` коммитятся; вручную их не редактировать. После генерации пересоберите SDK через `mise run build` или `mise run dev`.
 - Сообщения коммитов — Conventional Commits на английском: `feat:`, `fix:`, `docs:`, `chore:` и т. п.
 - Workflow `.github/workflows/hexlet-check.yml` принадлежит Хекслету и не изменяется. Наши проверки — в `.github/workflows/check.yml`.
+
+## Agent skills
+
+### Issue tracker
+
+Задачи и спецификации — GitHub Issues. См. `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Пять стандартных меток состояния задач. См. `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Единый контекст: `GLOSSARY.md` и `docs/adr/`. См. `docs/agents/domain.md`.
