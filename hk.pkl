@@ -1,0 +1,25 @@
+amends "package://github.com/jdx/hk/releases/download/v2.11.0/hk@2.11.0#/Config.pkl"
+
+hooks {
+  ["pre-commit"] {
+    fix = false
+    stage = false
+    stash = "git"
+    steps {
+      ["lint"] { check = "npm run lint" }
+      ["format"] { check = "npm run format:check" }
+    }
+  }
+  ["commit-msg"] {
+    steps {
+      ["conventional-commits"] {
+        check = "npm exec --no -- commitlint --edit {{commit_msg_file}}"
+      }
+    }
+  }
+  ["pre-push"] {
+    steps {
+      ["check"] { check = "mise run check" }
+    }
+  }
+}

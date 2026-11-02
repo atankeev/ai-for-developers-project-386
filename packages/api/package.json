@@ -1,0 +1,29 @@
+{
+  "name": "@call-calendar/api-contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/sdk/index.d.ts",
+      "default": "./dist/sdk/index.js"
+    },
+    "./client": {
+      "types": "./dist/sdk/client/index.d.ts",
+      "default": "./dist/sdk/client/index.js"
+    },
+    "./openapi.json": "./generated/openapi.json"
+  },
+  "scripts": {
+    "generate": "node ../../scripts/generate.mjs",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@typespec/compiler": "1.17.0",
+    "@typespec/http": "1.17.0",
+    "@typespec/openapi": "1.17.0",
+    "@typespec/openapi3": "1.17.0"
+  }
+}

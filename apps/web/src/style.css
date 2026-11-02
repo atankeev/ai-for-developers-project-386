@@ -1,0 +1,69 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #1f2937;
+  background: #f7f8fa;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+.page {
+  width: min(100% - 3rem, 960px);
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+}
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 650;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.65rem;
+  background: #1f2937;
+  color: white;
+}
+.intro {
+  margin: 5rem 0 2rem;
+  max-width: 620px;
+}
+.eyebrow {
+  color: #047857;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+h1 {
+  margin: 1rem 0;
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+.description {
+  max-width: 540px;
+  color: #4b5563;
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+.status-card {
+  max-width: 540px;
+}
+.connection p {
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+@media (max-width: 480px) {
+  .intro {
+    margin-top: 3rem;
+  }
+}

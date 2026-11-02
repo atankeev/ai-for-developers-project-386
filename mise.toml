@@ -1,0 +1,51 @@
+min_version = "2026.10.25"
+
+[settings]
+experimental = true
+
+[tools]
+node = "24.22.1"
+"npm:npm" = "11.19.1"
+hk = "2.11.0"
+pitchfork = "2.33.0"
+jactionlint = "2.4.0"
+
+[tasks.setup]
+description = "Install dependencies, build the SDK and install local Git hooks"
+run = ["npm ci", "npm run build --workspace @call-calendar/api-contract", "hk install --mise"]
+
+[tasks.generate]
+description = "Regenerate OpenAPI and the TypeScript SDK"
+run = "npm run generate"
+
+[tasks.check]
+description = "Run all project checks, including hooks and workflow validation"
+run = ["npm run check", "hk validate", "jactionlint --shellcheck= .github/workflows/check.yml"]
+
+[tasks.lint]
+run = "npm run lint"
+
+[tasks.format]
+run = "npm run format"
+
+[tasks.test]
+run = "npm test"
+
+[tasks.build]
+run = "npm run build"
+
+[tasks.dev]
+description = "Start frontend and backend in the background"
+run = ["npm run build --workspace @call-calendar/api-contract", "mise daemons start api web"]
+
+[tasks.stop]
+run = "mise daemons stop web api"
+
+[daemons.api]
+run = "exec npm run dev --workspace @call-calendar/api"
+ready_port = 3000
+
+[daemons.web]
+run = "exec npm run dev --workspace @call-calendar/web"
+ready_port = 5173
+depends = ["api"]

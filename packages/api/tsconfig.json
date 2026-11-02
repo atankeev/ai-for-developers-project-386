@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "rootDir": "generated",
+    "outDir": "dist",
+    "declaration": true
+  },
+  "include": ["generated/sdk/**/*.ts"]
+}
