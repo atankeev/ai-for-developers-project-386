@@ -57,10 +57,18 @@ h1 {
 .status-card {
   max-width: 540px;
 }
-.connection p {
+.launch-notice {
   color: #4b5563;
   line-height: 1.6;
   margin-bottom: 0;
+}
+a:focus-visible {
+  outline: 3px solid #047857;
+  outline-offset: 4px;
+}
+.status-card .p-button {
+  max-width: 100%;
+  text-align: center;
 }
 @media (max-width: 480px) {
   .intro {

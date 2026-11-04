@@ -34,6 +34,8 @@ node_modules/
 dist/
 coverage/
 .vitest/
+test-results/
+playwright-report/
 *.tsbuildinfo
 
 # Local configuration and credentials
