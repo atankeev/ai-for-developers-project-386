@@ -26,5 +26,7 @@ jobs:
           experimental: true
       - name: Install dependencies
         run: mise exec -- npm ci
+      - name: Install Chromium for browser tests
+        run: mise exec -- npx playwright install --with-deps chromium
       - name: Run project checks
         run: mise run check

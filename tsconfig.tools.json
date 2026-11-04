@@ -5,5 +5,10 @@
     "moduleResolution": "NodeNext",
     "types": ["node"]
   },
-  "include": ["vitest.config.ts", "packages/api/openapi-ts.config.ts"]
+  "include": [
+    "vitest.config.ts",
+    "packages/api/openapi-ts.config.ts",
+    "playwright.config.ts",
+    "tests/e2e/**/*.ts"
+  ]
 }

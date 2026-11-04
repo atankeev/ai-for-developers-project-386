@@ -31,6 +31,10 @@ run = "npm run format"
 [tasks.test]
 run = "npm test"
 
+[tasks."test:e2e"]
+description = "Build the web app and run browser tests"
+run = "npm run test:e2e"
+
 [tasks.build]
 run = "npm run build"
 
