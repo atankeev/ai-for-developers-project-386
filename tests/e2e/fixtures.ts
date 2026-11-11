@@ -60,7 +60,11 @@ export const test = base.extend<{
       try {
         await use();
       } finally {
-        await app.close();
+        try {
+          await context.unrouteAll({ behavior: 'wait' });
+        } finally {
+          await app.close();
+        }
       }
     },
     { auto: true },
