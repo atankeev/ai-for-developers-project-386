@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { expect, test, vi } from 'vitest';
 import {
   createBooking,
+  cancelBooking,
   createMeetingType,
   replaceWeeklySchedule,
   ownerLogin,
@@ -212,5 +213,89 @@ test('restart before retention loses domain data and links while the same attemp
     expect(replacement.data!.confirmationUrl).not.toBe(created.confirmationUrl);
   } finally {
     await second.app.close();
+  }
+});
+
+test('even an unchanged owner schedule mutation purges expired records and successful attempts', async () => {
+  const { app, client, body, headers, clock, authenticate } = await server();
+  try {
+    const created = (await createBooking({ client, body })).data!;
+    const token = created.confirmationUrl.split('/').at(-1)!;
+    clock.now = Date.parse('2026-12-10T06:30:00.000Z');
+    await authenticate();
+    expect(
+      (
+        await replaceWeeklySchedule({
+          client,
+          headers,
+          body: {
+            expectedVersion: 2,
+            days: [1, 2, 3, 4, 5, 6, 7].map((day) => ({
+              day,
+              intervals: [{ start: '09:00', end: '18:00' }],
+            })),
+          },
+        })
+      ).response!.status,
+    ).toBe(200);
+    // A later clock correction does not restore the deleted record or its retry guarantee.
+    clock.now = Date.parse('2026-11-09T06:00:00Z');
+    expect((await getConfirmation({ client, path: { token } })).response!.status).toBe(404);
+    const fresh = await createBooking({ client, body });
+    expect(fresh.response!.status).toBe(200);
+    expect(fresh.data!.booking.id).not.toBe(created.booking.id);
+  } finally {
+    await app.close();
+  }
+});
+
+test('retention is thirty elapsed days across a thirty-one-day month', async () => {
+  const { app, client, body, clock } = await server();
+  try {
+    clock.now = Date.parse('2026-12-09T06:00:00Z');
+    const created = (
+      await createBooking({ client, body: { ...body, startsAt: '2026-12-10T06:00:00Z' } })
+    ).data!;
+    const token = created.confirmationUrl.split('/').at(-1)!;
+    clock.now = Date.parse('2027-01-09T06:29:59.999Z');
+    expect((await getConfirmation({ client, path: { token } })).response!.status).toBe(200);
+    clock.now = Date.parse('2027-01-09T06:30:00.000Z');
+    expect((await getConfirmation({ client, path: { token } })).response!.status).toBe(404);
+  } finally {
+    await app.close();
+  }
+});
+
+test('cancellation does not restart retention; expired cancellation and retries see no old booking', async () => {
+  const { app, client, headers, body, clock, authenticate } = await server();
+  try {
+    const created = (await createBooking({ client, body })).data!;
+    const path = { id: created.booking.id };
+    const token = created.confirmationUrl.split('/').at(-1)!;
+    clock.now = Date.parse('2026-11-10T05:59:59.999Z');
+    await authenticate();
+    expect((await cancelBooking({ client, headers, path })).data?.status).toBe('cancelled');
+    // Thirty days after cancellation is still before the planned-end retention boundary.
+    clock.now = Date.parse('2026-12-10T06:00:00.000Z');
+    await authenticate();
+    expect((await getConfirmation({ client, path: { token } })).data?.status).toBe('cancelled');
+    clock.now = Date.parse('2026-12-10T06:29:59.999Z');
+    expect((await cancelBooking({ client, headers, path })).data?.status).toBe('cancelled');
+    expect(
+      (await listOwnerBookings({ client, headers, query: { group: 'cancelled' } })).data!.items,
+    ).toHaveLength(1);
+    expect((await createBooking({ client, body })).data?.booking.status).toBe('cancelled');
+    clock.now = Date.parse('2026-12-10T06:30:00.000Z');
+    expect((await getConfirmation({ client, path: { token } })).response!.status).toBe(404);
+    expect(
+      (await listOwnerBookings({ client, headers, query: { group: 'cancelled' } })).data!.items,
+    ).toEqual([]);
+    expect((await cancelBooking({ client, headers, path })).error).toEqual({
+      code: 'NOT_FOUND',
+      message: 'Запись не найдена',
+    });
+    expect((await createBooking({ client, body })).error?.code).toBe('TIME_UNAVAILABLE');
+  } finally {
+    await app.close();
   }
 });
