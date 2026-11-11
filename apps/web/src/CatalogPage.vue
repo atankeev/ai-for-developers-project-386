@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import Button from 'primevue/button';
 import {
@@ -65,6 +65,12 @@ async function refreshAvailability() {
     /* Keep the editable form and existing refusal visible; selection never moves automatically. */
   }
 }
+function refreshAfterRefusal() {
+  if (route.params.id) void refreshAvailability();
+  else void load();
+}
+onMounted(() => window.addEventListener('booking-refused', refreshAfterRefusal));
+onUnmounted(() => window.removeEventListener('booking-refused', refreshAfterRefusal));
 watch(() => route.params.id, load, { immediate: true });
 </script>
 <template>
