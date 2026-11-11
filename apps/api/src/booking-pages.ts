@@ -1,7 +1,7 @@
 import { CalendarError } from './calendar.js';
 import { ownerBooking, type Booking } from './bookings.js';
 type Group = 'upcoming' | 'past' | 'cancelled';
-type Key = { startsAt: string; id: string };
+type Key = { startsAt: number; id: string };
 const compare = (a: Key, b: Key) =>
   a.startsAt < b.startsAt
     ? -1
@@ -41,7 +41,7 @@ export function bookingPage(
         Buffer.from(JSON.stringify(value)).toString('base64url') !== cursor
       )
         return invalid();
-      key = value;
+      key = { startsAt: Date.parse(value.startsAt), id: value.id };
     } catch {
       return invalid();
     }
@@ -51,8 +51,7 @@ export function bookingPage(
     .filter((b) =>
       group === 'cancelled'
         ? b.status === 'cancelled'
-        : b.status === 'confirmed' &&
-          (group === 'upcoming' ? Date.parse(b.endsAt) > now : Date.parse(b.endsAt) <= now),
+        : b.status === 'confirmed' && (group === 'upcoming' ? b.endsAt > now : b.endsAt <= now),
     )
     .filter((b) => !key || direction * compare(b, key) > 0)
     .sort((a, b) => direction * compare(a, b));

@@ -15,6 +15,8 @@ const route = useRoute();
 const loading = ref(true);
 const failed = ref(false);
 const missing = ref(false);
+const refreshing = ref(false);
+const refreshFailed = ref(false);
 const items = ref<CatalogItem[]>([]);
 const availability = ref<Availability>();
 const type = ref<PublicMeetingType>();
@@ -22,6 +24,8 @@ let generation = 0;
 async function load() {
   const current = ++generation;
   loading.value = true;
+  refreshing.value = false;
+  refreshFailed.value = false;
   failed.value = false;
   missing.value = false;
   type.value = undefined;
@@ -50,7 +54,9 @@ async function load() {
 }
 async function refreshAvailability() {
   const id = String(route.params.id),
-    current = generation;
+    current = ++generation;
+  refreshing.value = true;
+  refreshFailed.value = false;
   try {
     const result = await getAvailability({ path: { id } });
     if (current !== generation) return;
@@ -60,9 +66,11 @@ async function refreshAvailability() {
     } else if (result.response?.status === 404) {
       missing.value = true;
       type.value = undefined;
-    }
+    } else throw new Error();
   } catch {
-    /* Keep the editable form and existing refusal visible; selection never moves automatically. */
+    if (current === generation) refreshFailed.value = true;
+  } finally {
+    if (current === generation) refreshing.value = false;
   }
 }
 function refreshAfterRefusal() {
@@ -70,7 +78,10 @@ function refreshAfterRefusal() {
   else void load();
 }
 onMounted(() => window.addEventListener('booking-refused', refreshAfterRefusal));
-onUnmounted(() => window.removeEventListener('booking-refused', refreshAfterRefusal));
+onUnmounted(() => {
+  generation++;
+  window.removeEventListener('booking-refused', refreshAfterRefusal);
+});
 watch(() => route.params.id, load, { immediate: true });
 </script>
 <template>
@@ -93,9 +104,15 @@ watch(() => route.params.id, load, { immediate: true });
     <template v-else-if="type">
       <p class="plain-text">{{ type.description }}</p>
       <p>{{ type.durationMinutes }} минут</p>
+      <p v-if="refreshing" role="status">Обновляем доступное время…</p>
+      <div v-if="refreshFailed" role="alert">
+        <p>Не удалось обновить доступное время.</p>
+        <Button label="Повторить загрузку времени" @click="refreshAvailability" />
+      </div>
       <TimeSelection
         v-if="availability"
         :availability="availability"
+        :unavailable="refreshing || refreshFailed"
         @refresh="refreshAvailability"
       />
     </template>

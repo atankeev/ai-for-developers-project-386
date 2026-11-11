@@ -6,7 +6,12 @@ import type {
   MeetingType,
 } from '@call-calendar/api-contract';
 import { CalendarError } from './calendar.js';
-export type Booking = OwnerBooking & { token: string };
+export type Booking = Omit<OwnerBooking, 'startsAt' | 'endsAt' | 'cancelledAt'> & {
+  token: string;
+  startsAt: number;
+  endsAt: number;
+  cancelledAt: number | null;
+};
 export function normalizeBooking(input: CreateBookingRequest) {
   const errors: Record<string, string> = {};
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -39,7 +44,7 @@ export function normalizeBooking(input: CreateBookingRequest) {
   return {
     attemptId: input.attemptId.toLowerCase(),
     meetingTypeId: input.meetingTypeId.toLowerCase(),
-    startsAt: new Date(instant).toISOString(),
+    startsAt: instant,
     guestName,
     guestEmail,
     comment,
@@ -56,7 +61,7 @@ export function makeBooking(
     description: type.description,
     durationMinutes: type.durationMinutes,
     startsAt: input.startsAt,
-    endsAt: new Date(Date.parse(input.startsAt) + type.durationMinutes * 60000).toISOString(),
+    endsAt: input.startsAt + type.durationMinutes * 60000,
     status: 'confirmed',
     cancelledAt: null,
     guestName: input.guestName,
@@ -69,8 +74,8 @@ export function guestBooking(booking: Booking): GuestBooking {
   return {
     id: booking.id,
     title: booking.title,
-    startsAt: booking.startsAt,
-    endsAt: booking.endsAt,
+    startsAt: new Date(booking.startsAt).toISOString(),
+    endsAt: new Date(booking.endsAt).toISOString(),
     timeZone: 'Europe/Moscow',
     status: booking.status,
   };
@@ -82,15 +87,15 @@ export function ownerBooking(booking: Booking): OwnerBooking {
     title: booking.title,
     description: booking.description,
     durationMinutes: booking.durationMinutes,
-    startsAt: booking.startsAt,
-    endsAt: booking.endsAt,
+    startsAt: new Date(booking.startsAt).toISOString(),
+    endsAt: new Date(booking.endsAt).toISOString(),
     status: booking.status,
-    cancelledAt: booking.cancelledAt,
+    cancelledAt: booking.cancelledAt === null ? null : new Date(booking.cancelledAt).toISOString(),
     guestName: booking.guestName,
     guestEmail: booking.guestEmail,
     comment: booking.comment,
   };
 }
-export function overlaps(booking: Booking, start: string, end: string) {
+export function overlaps(booking: Booking, start: number, end: number) {
   return booking.status === 'confirmed' && booking.startsAt < end && booking.endsAt > start;
 }

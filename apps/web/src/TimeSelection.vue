@@ -6,15 +6,16 @@ import Textarea from 'primevue/textarea';
 import { bookingState as state, clearBookingDraft, sendBookingAttempt } from './booking-state.js';
 import Button from 'primevue/button';
 import type { Availability } from '@call-calendar/api-contract';
-const props = defineProps<{ availability: Availability }>();
+const props = defineProps<{ availability: Availability; unavailable?: boolean }>();
 const emit = defineEmits<{ refresh: [] }>();
 const router = useRouter();
 const errors = ref<Record<string, string>>({});
 const message = ref('');
 const form = ref<HTMLFormElement>();
+const selectionLocked = computed(() => locked.value || props.unavailable);
 const locked = computed(() => state.sending || !!state.pending);
 async function submit() {
-  if (state.sending || state.pending) return;
+  if (selectionLocked.value) return;
   errors.value = {};
   message.value = '';
   const name = state.guestName.trim(),
@@ -129,7 +130,7 @@ function move(event: KeyboardEvent, index: number) {
           type="button"
           :data-date="date.date"
           :aria-label="`Выбрать дату ${formatDate(date.date)}`"
-          :disabled="locked || !date.slots.length"
+          :disabled="selectionLocked || !date.slots.length"
           :aria-pressed="date.date === selectedDate"
           :tabindex="date.date === focusDate ? 0 : -1"
           @focus="focusDate = date.date"
@@ -147,7 +148,7 @@ function move(event: KeyboardEvent, index: number) {
             v-for="slot in day.slots"
             :key="slot.startsAt"
             :label="formatTime(slot.startsAt)"
-            :disabled="locked"
+            :disabled="selectionLocked"
             :aria-pressed="selectedTime === slot.startsAt"
             severity="secondary"
             @click="selectedTime = slot.startsAt"
@@ -165,13 +166,7 @@ function move(event: KeyboardEvent, index: number) {
       <p v-else>Выберите время встречи</p>
       <p v-if="message" role="alert">{{ message }}</p>
       <form
-        v-if="
-          availability.days.some((day) => day.slots.length) ||
-          state.pending ||
-          state.guestName ||
-          state.guestEmail ||
-          state.comment
-        "
+        v-if="availability.days.some((day) => day.slots.length)"
         ref="form"
         class="contact-form"
         novalidate
@@ -210,7 +205,7 @@ function move(event: KeyboardEvent, index: number) {
         />
         <p v-if="errors.comment" id="guest-comment-error" role="alert">{{ errors.comment }}</p>
         <p v-if="state.sending" role="status">Отправляем запись…</p>
-        <Button label="Подтвердить запись" type="submit" :disabled="locked" />
+        <Button label="Подтвердить запись" type="submit" :disabled="selectionLocked" />
         <Button
           label="Очистить черновик"
           type="button"

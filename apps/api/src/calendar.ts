@@ -74,14 +74,16 @@ export class Calendar {
   }
   readonly bookings = new Map<string, Booking>();
   readonly confirmationIndex = new Map<string, string>();
-  readonly successfulAttempts = new Map<string, { request: string; bookingId: string }>();
+  readonly successfulAttempts = new Map<
+    string,
+    { request: ReturnType<typeof normalizeBooking>; bookingId: string }
+  >();
   createBooking(input: CreateBookingRequest) {
     return this.mutate((now) => {
       const normalized = normalizeBooking(input);
-      const request = JSON.stringify(normalized);
       const attempt = this.successfulAttempts.get(normalized.attemptId);
       if (attempt) {
-        if (attempt.request !== request)
+        if (JSON.stringify(attempt.request) !== JSON.stringify(normalized))
           throw new CalendarError(
             'ATTEMPT_DATA_MISMATCH',
             'Данные попытки отличаются от успешной записи',
@@ -93,19 +95,22 @@ export class Calendar {
         throw new CalendarError('NOT_FOUND', 'Тип встречи не найден', undefined, 404);
       const candidate = this.availability(type, now, false)
         .days.flatMap((day) => day.slots)
-        .find((slot) => slot.startsAt === normalized.startsAt);
+        .find((slot) => Date.parse(slot.startsAt) === normalized.startsAt);
       if (!candidate)
         throw new CalendarError('TIME_UNAVAILABLE', 'Выбранное время больше недоступно');
       if (
         [...this.bookings.values()].some((booking) =>
-          overlaps(booking, candidate.startsAt, candidate.endsAt),
+          overlaps(booking, Date.parse(candidate.startsAt), Date.parse(candidate.endsAt)),
         )
       )
         throw new CalendarError('SLOT_OCCUPIED', 'Это время уже занято');
       const booking = makeBooking(normalized, type);
       this.bookings.set(booking.id, booking);
       this.confirmationIndex.set(booking.token, booking.id);
-      this.successfulAttempts.set(normalized.attemptId, { request, bookingId: booking.id });
+      this.successfulAttempts.set(normalized.attemptId, {
+        request: normalized,
+        bookingId: booking.id,
+      });
       return this.bookingResult(booking);
     });
   }
@@ -122,13 +127,13 @@ export class Calendar {
       const booking = this.bookings.get(id);
       if (!booking) throw new CalendarError('NOT_FOUND', 'Запись не найдена', undefined, 404);
       if (booking.status === 'cancelled') return ownerBooking(booking);
-      if (now >= Date.parse(booking.startsAt))
+      if (now >= booking.startsAt)
         throw new CalendarError(
           'CANCELLATION_UNAVAILABLE',
           'Отмена недоступна: встреча уже началась',
         );
       booking.status = 'cancelled';
-      booking.cancelledAt = new Date(now).toISOString();
+      booking.cancelledAt = now;
       return ownerBooking(booking);
     });
   }
@@ -166,7 +171,7 @@ export class Calendar {
   }
 
   private expired(booking: Booking, now: number) {
-    return now >= Date.parse(booking.endsAt) + 30 * 24 * 60 * 60 * 1000;
+    return now >= booking.endsAt + 30 * 24 * 60 * 60 * 1000;
   }
 
   private visibleBooking(id: string, now: number) {
@@ -308,7 +313,7 @@ export class Calendar {
         (slot) =>
           !filterOccupied ||
           ![...this.bookings.values()].some((booking) =>
-            overlaps(booking, slot.startsAt, slot.endsAt),
+            overlaps(booking, Date.parse(slot.startsAt), Date.parse(slot.endsAt)),
           ),
       ),
     }));

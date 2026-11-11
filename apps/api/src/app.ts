@@ -71,7 +71,9 @@ export function buildApp(
   });
   // One boundary protects every present and future owner route before its handler or validation.
   app.addHook('onRequest', async (request, reply) => {
-    const path = request.url.split('?')[0]!;
+    // Fastify has already matched and decoded static route segments at this point.
+    // Classify that route, so encoded aliases have exactly the same security boundary.
+    const path = request.routeOptions.url ?? request.url.split('?')[0]!;
     if (path === '/api/bookings' || path.startsWith('/api/confirmations/'))
       reply.header('Cache-Control', 'no-store');
     if (path !== '/api/owner' && !path.startsWith('/api/owner/')) return;

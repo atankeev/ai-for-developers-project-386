@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
+import WorkingIntervals from './WorkingIntervals.vue';
 import {
   getScheduleException,
   replaceScheduleException,
@@ -109,36 +110,14 @@ async function save(remove = false) {
         <legend>{{ loaded.date }} — Europe/Moscow</legend>
         <p v-if="loaded.intervals === null">Исключения нет: действуют недельные часы</p>
         <p v-else-if="!loaded.intervals.length">День закрыт</p>
-        <div
-          v-for="(interval, index) in loaded.intervals ?? []"
-          :key="index"
-          class="working-interval"
-        >
-          <label
-            >Начало
-            <InputText
-              v-model="interval.start"
-              :aria-label="`Исключение: начало ${index + 1}`"
-              :aria-invalid="!!errors.intervals"
-          /></label>
-          <label
-            >Конец
-            <InputText
-              v-model="interval.end"
-              :aria-label="`Исключение: конец ${index + 1}`"
-              :aria-invalid="!!errors.intervals"
-          /></label>
-          <Button
-            label="Удалить интервал"
-            :aria-label="`Удалить интервал исключения ${index + 1}`"
-            @click="loaded.intervals!.splice(index, 1)"
-          />
-        </div>
-        <p v-if="errors.intervals" role="alert">{{ errors.intervals }}</p>
-        <Button
-          label="Добавить интервал исключения"
-          severity="secondary"
-          @click="(loaded.intervals ??= []).push({ start: '09:00', end: '18:00' })"
+        <WorkingIntervals
+          v-model="loaded.intervals"
+          context="Исключение"
+          :error="errors.intervals"
+          add-label="Добавить интервал исключения"
+          add-aria-label="Добавить интервал исключения"
+          remove-label="Удалить интервал"
+          :remove-aria-label="(index) => `Удалить интервал исключения ${index + 1}`"
         />
         <Button label="Закрыть день" severity="secondary" @click="loaded.intervals = []" />
         <Button type="submit" label="Сохранить исключение" />

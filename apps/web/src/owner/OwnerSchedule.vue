@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import Button from 'primevue/button';
-import InputText from 'primevue/inputtext';
+import WorkingIntervals from './WorkingIntervals.vue';
 import {
   getOwnerSchedule,
   replaceWeeklySchedule,
@@ -86,36 +86,10 @@ onMounted(load);
       <fieldset v-for="day in week.days" :key="day.day" class="schedule-day" :disabled="busy">
         <legend>{{ names[day.day - 1] }}</legend>
         <p v-if="!day.intervals.length">Закрыто</p>
-        <div v-for="(interval, index) in day.intervals" :key="index" class="working-interval">
-          <label
-            >Начало
-            <InputText
-              v-model="interval.start"
-              :aria-label="`${names[day.day - 1]}: начало ${index + 1}`"
-              :aria-invalid="!!errors[`days.${day.day}`]"
-              placeholder="HH:mm"
-          /></label>
-          <label
-            >Конец
-            <InputText
-              v-model="interval.end"
-              :aria-label="`${names[day.day - 1]}: конец ${index + 1}`"
-              :aria-invalid="!!errors[`days.${day.day}`]"
-              placeholder="HH:mm"
-          /></label>
-          <Button
-            label="Удалить"
-            :aria-label="`Удалить интервал ${index + 1}: ${names[day.day - 1]}`"
-            severity="secondary"
-            @click="day.intervals.splice(index, 1)"
-          />
-        </div>
-        <p v-if="errors[`days.${day.day}`]" role="alert">{{ errors[`days.${day.day}`] }}</p>
-        <Button
-          label="Добавить интервал"
-          :aria-label="`Добавить интервал: ${names[day.day - 1]}`"
-          severity="secondary"
-          @click="day.intervals.push({ start: '09:00', end: '18:00' })"
+        <WorkingIntervals
+          v-model="day.intervals"
+          :context="names[day.day - 1]!"
+          :error="errors[`days.${day.day}`]"
         />
       </fieldset>
       <p v-if="message" role="alert">{{ message }}</p>

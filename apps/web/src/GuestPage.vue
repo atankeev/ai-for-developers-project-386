@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Button from 'primevue/button';
+import { RouterLink } from 'vue-router';
 import { onMounted } from 'vue';
 onMounted(() => {
   document.title = 'Календарь звонков';
@@ -17,6 +18,6 @@ onMounted(() => {
         Выберите тип встречи, свободное время и оставьте контакты без регистрации.
       </p>
     </section>
-    <Button as="a" href="/book" label="Записаться на встречу" />
+    <Button :as="RouterLink" to="/book" label="Записаться на встречу" />
   </main>
 </template>

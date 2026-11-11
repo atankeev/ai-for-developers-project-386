@@ -150,3 +150,106 @@ test('guest sees actual successful conditions and can reselect after current dur
   await expect(page.getByRole('heading', { name: 'Actual', exact: true })).toBeVisible();
   await expect(page.getByText(/09:00.*10:30/)).toBeVisible();
 });
+
+for (const refusal of ['TIME_UNAVAILABLE', 'SLOT_OCCUPIED']) {
+  test(`fresh availability is required after ${refusal}, with manual retry and retained contacts`, async ({
+    page,
+    owner,
+  }) => {
+    const id = await setup(page, owner);
+    await page.goto(`/book/${id}`);
+    await page.getByRole('button', { name: '10:30', exact: true }).click();
+    await page.getByLabel('Имя', { exact: true }).fill('Guest');
+    await page.getByLabel('Email', { exact: true }).fill('guest@example.test');
+    if (refusal === 'TIME_UNAVAILABLE') await change(page, id, { durationMinutes: 60 });
+    else
+      await page.evaluate(async (id) => {
+        await fetch('/api/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            attemptId: crypto.randomUUID(),
+            meetingTypeId: id,
+            startsAt: '2026-11-10T07:30:00Z',
+            guestName: 'Other',
+            guestEmail: 'other@example.test',
+          }),
+        });
+      }, id);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/meeting-types/*/availability', async (route) => {
+      await gate;
+      await route.abort();
+    });
+    let creates = 0;
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/bookings')
+        creates++;
+    });
+    await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).click();
+    await expect(page.getByText('Обновляем доступное время…', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '09:00', exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: 'Подтвердить запись', exact: true }),
+    ).toBeDisabled();
+    release();
+    await expect(
+      page.getByText('Не удалось обновить доступное время.', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Подтвердить запись', exact: true }),
+    ).toBeDisabled();
+    await expect(page.getByLabel('Имя', { exact: true })).toHaveValue('Guest');
+    expect(creates).toBe(1);
+    await page.unroute('**/api/meeting-types/*/availability');
+    await page.getByRole('button', { name: 'Повторить загрузку времени', exact: true }).click();
+    await expect(page.getByRole('button', { name: '09:00', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '10:30', exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Email', { exact: true })).toHaveValue('guest@example.test');
+    await page.getByRole('button', { name: '09:00', exact: true }).click();
+    await page.getByRole('button', { name: 'Подтвердить запись', exact: true }).click();
+    await expect(page).toHaveURL(/\/confirmations\//);
+  });
+}
+
+test('a type without slots hides contacts while preserving the draft for another type', async ({
+  page,
+  owner,
+}) => {
+  const id = await setup(page, owner);
+  await page.evaluate(async () => {
+    await fetch('/api/owner/meeting-types', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'No slots', durationMinutes: 1440 }),
+    });
+  });
+  await page.goto(`/book/${id}`);
+  await page.getByLabel('Имя', { exact: true }).fill('Draft guest');
+  await page.getByLabel('Email', { exact: true }).fill('draft@example.test');
+  await page.getByLabel('Комментарий', { exact: true }).fill('Keep my draft');
+  await page.getByRole('link', { name: 'Вернуться к типам встреч', exact: true }).click();
+  await page.getByRole('article').filter({ hasText: 'No slots' }).getByRole('link').click();
+  await expect(
+    page.getByText('Нет свободного времени для этой встречи в ближайшие 14 дней', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Контакты', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Имя', { exact: true })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Вернуться к типам встреч', exact: true }).click();
+  await page.getByRole('article').filter({ hasText: 'Original' }).getByRole('link').click();
+  await expect(page.getByLabel('Имя', { exact: true })).toHaveValue('Draft guest');
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue('draft@example.test');
+  await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue('Keep my draft');
+  await page.getByRole('link', { name: 'Вернуться к типам встреч', exact: true }).click();
+  await page.getByRole('link', { name: 'Вернуться на главную', exact: true }).click();
+  const book = page.getByRole('link', { name: 'Записаться на встречу', exact: true });
+  await book.focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('article').filter({ hasText: 'Original' }).getByRole('link').click();
+  await expect(page.getByLabel('Имя', { exact: true })).toHaveValue('Draft guest');
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue('draft@example.test');
+  await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue('Keep my draft');
+});

@@ -38,6 +38,7 @@ async function server() {
   return {
     app,
     client,
+    baseUrl,
     advance: (milliseconds: number) => {
       now += milliseconds;
     },
@@ -1088,6 +1089,87 @@ test('exception changes govern new bookings while existing bookings retain and o
         })
       ).error!.code,
     ).toBe('SLOT_OCCUPIED');
+  } finally {
+    await app.close();
+  }
+});
+
+test('encoded owner route aliases enforce authentication before reading or changing private data', async () => {
+  const { app, client, baseUrl } = await server();
+  try {
+    for (const prefix of ['/api/%6fwner', '/%61pi/owner', '/%61pi/%6fwner']) {
+      for (const suffix of [
+        '/meeting-types',
+        '/bookings?group=upcoming',
+        '/schedule',
+        '/session',
+      ]) {
+        const response = await fetch(`${baseUrl}${prefix}${suffix}`);
+        expect(response.status).toBe(401);
+        expect(await response.json()).toMatchObject({ code: 'UNAUTHENTICATED' });
+        expect(response.headers.get('cache-control')).toBe('no-store');
+      }
+      const body = JSON.stringify({ title: 'Unauthorized', durationMinutes: 30 });
+      for (const origin of [undefined, config.allowedOrigin]) {
+        const response = await fetch(`${baseUrl}${prefix}/meeting-types`, {
+          method: 'POST',
+          body,
+          headers: { 'Content-Type': 'application/json', ...(origin ? { Origin: origin } : {}) },
+        });
+        expect(response.status).toBe(origin ? 401 : 403);
+        expect(response.headers.get('cache-control')).toBe('no-store');
+      }
+    }
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    expect(
+      (await listOwnerMeetingTypes({ client, headers: headers(cookie(login.response)) })).data!
+        .items,
+    ).toEqual([]);
+  } finally {
+    await app.close();
+  }
+});
+
+test('encoded login aliases share the canonical login limit, Origin and cache rules', async () => {
+  const { app, baseUrl } = await server();
+  try {
+    const aliases = ['/api/owner/login', '/api/%6fwner/login', '/%61pi/owner/%6cogin'];
+    const send = (path: string, origin?: string) =>
+      fetch(`${baseUrl}${path}`, {
+        method: 'POST',
+        body: JSON.stringify(credentials()),
+        headers: { 'Content-Type': 'application/json', ...(origin ? { Origin: origin } : {}) },
+      });
+    expect((await send(aliases[1]!)).status).toBe(403);
+    let signedIn = '';
+    for (let index = 0; index < 6; index++) {
+      const response = await send(aliases[index % aliases.length]!, config.allowedOrigin);
+      expect(response.status).toBe(index < 5 ? 200 : 429);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      if (index === 0) signedIn = cookie(response);
+      if (index === 5) expect(response.headers.get('retry-after')).toBe('60');
+    }
+    const forbidden = await fetch(`${baseUrl}/api/%6fwner/meeting-types`, {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Forbidden', durationMinutes: 30 }),
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: signedIn,
+        Origin: 'http://foreign.test',
+      },
+    });
+    expect(forbidden.status).toBe(403);
+    for (const [path, method] of [
+      ['/%61pi/%62ookings', 'POST'],
+      ['/api/%63onfirmations/missing', 'GET'],
+    ]) {
+      const response = await fetch(`${baseUrl}${path}`, { method });
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect((await response.json()).code).toBeDefined();
+    }
+    const missing = await fetch(`${baseUrl}/api/owner/missing`);
+    expect(missing.status).toBe(401);
+    expect(missing.headers.get('cache-control')).toBe('no-store');
   } finally {
     await app.close();
   }
