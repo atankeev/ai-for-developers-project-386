@@ -4,6 +4,7 @@ import {
   createBooking,
   createMeetingType,
   replaceMeetingType,
+  replaceScheduleException,
   listOwnerMeetingTypes,
   getCatalog,
   replaceWeeklySchedule,
@@ -353,6 +354,21 @@ test('owner replaces a complete type with optimistic versions; concurrent writes
     ).toBe('VERSION_CONFLICT');
     expect((await listOwnerMeetingTypes({ client, headers })).data!.items).toEqual([current]);
     expect((await getCatalog({ client })).data!.items).toEqual([]);
+    await createMeetingType({
+      client,
+      headers,
+      body: { title: 'Consultation', durationMinutes: 30 },
+    });
+    expect(
+      (
+        await replaceMeetingType({
+          client,
+          headers,
+          path: { id: type.id },
+          body: { ...body, title: 'Consultation' },
+        })
+      ).error?.code,
+    ).toBe('VERSION_CONFLICT');
   } finally {
     await app.close();
   }
@@ -525,6 +541,56 @@ test('booking uses current conditions and preserves snapshot, occupied interval 
       ).error?.code,
     ).toBe('TIME_UNAVAILABLE');
     expect((await createBooking({ client, body })).data).toEqual(booked);
+  } finally {
+    await app.close();
+  }
+});
+
+test('type replacement duration warning considers current and future exceptions beyond the booking window', async () => {
+  const { app, client, headers, type } = await server();
+  try {
+    const body = {
+      title: type.title,
+      description: type.description,
+      durationMinutes: 600,
+      hidden: false,
+      expectedVersion: 1,
+    };
+    const path = { id: type.id };
+    expect((await replaceMeetingType({ client, headers, path, body })).data!.warnings).toHaveLength(
+      1,
+    );
+    await replaceScheduleException({
+      client,
+      headers,
+      path: { date: '2026-11-08' },
+      body: { expectedVersion: 0, intervals: [{ start: '00:00', end: '24:00' }] },
+    });
+    expect(
+      (await replaceMeetingType({ client, headers, path, body: { ...body, expectedVersion: 2 } }))
+        .data!.warnings,
+    ).toHaveLength(1);
+    await replaceScheduleException({
+      client,
+      headers,
+      path: { date: '2026-12-01' },
+      body: { expectedVersion: 0, intervals: [{ start: '09:00', end: '20:00' }] },
+    });
+    const saved = (
+      await replaceMeetingType({ client, headers, path, body: { ...body, expectedVersion: 2 } })
+    ).data!;
+    expect(saved.warnings).toEqual([]);
+    expect(saved.meetingType.version).toBe(2);
+    await replaceScheduleException({
+      client,
+      headers,
+      path: { date: '2026-12-01' },
+      body: { expectedVersion: 1, intervals: [] },
+    });
+    expect(
+      (await replaceMeetingType({ client, headers, path, body: { ...body, expectedVersion: 2 } }))
+        .data!.warnings,
+    ).toHaveLength(1);
   } finally {
     await app.close();
   }

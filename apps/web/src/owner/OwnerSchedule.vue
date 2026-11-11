@@ -7,6 +7,7 @@ import {
   replaceWeeklySchedule,
   type WeeklySchedule,
 } from '@call-calendar/api-contract';
+import ScheduleExceptions from './ScheduleExceptions.vue';
 import { SessionExpired } from './api.js';
 const week = ref<WeeklySchedule>();
 const names = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
@@ -32,6 +33,15 @@ async function load() {
     if (!(error instanceof SessionExpired)) failed.value = true;
   } finally {
     loading.value = false;
+  }
+}
+async function refreshExceptions() {
+  try {
+    const result = await getOwnerSchedule();
+    if (result.data && week.value) week.value.exceptions = result.data.exceptions;
+  } catch (error) {
+    if (!(error instanceof SessionExpired))
+      message.value = 'Не удалось обновить список исключений. Загрузите расписание заново.';
   }
 }
 async function save() {
@@ -113,5 +123,10 @@ onMounted(load);
       <p v-if="saved" role="status">Расписание сохранено</p>
       <Button type="submit" label="Сохранить неделю" :disabled="busy || conflict" :loading="busy" />
     </form>
+    <ScheduleExceptions
+      v-if="week && !loading && !failed"
+      :items="week.exceptions"
+      @changed="refreshExceptions"
+    />
   </section>
 </template>

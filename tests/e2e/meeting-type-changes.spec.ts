@@ -57,6 +57,7 @@ test('owner edits, reloads stale form and restores a hidden type at its original
   const id = await setup(page, owner);
   await page.getByRole('link', { name: 'Типы встреч', exact: true }).click();
   const edit = page.getByRole('button', { name: 'Редактировать Original', exact: true });
+  await page.keyboard.press('Tab');
   await edit.focus();
   await expect(edit).toHaveCSS('outline-style', 'solid');
   await page.keyboard.press('Enter');
