@@ -117,6 +117,21 @@ export class Calendar {
     if (!booking) throw new CalendarError('NOT_FOUND', 'Запись не найдена', undefined, 404);
     return guestBooking(booking);
   }
+  cancelBooking(id: string) {
+    return this.mutate((now) => {
+      const booking = this.bookings.get(id);
+      if (!booking) throw new CalendarError('NOT_FOUND', 'Запись не найдена', undefined, 404);
+      if (booking.status === 'cancelled') return ownerBooking(booking);
+      if (now >= Date.parse(booking.startsAt))
+        throw new CalendarError(
+          'CANCELLATION_UNAVAILABLE',
+          'Отмена недоступна: встреча уже началась',
+        );
+      booking.status = 'cancelled';
+      booking.cancelledAt = new Date(now).toISOString();
+      return ownerBooking(booking);
+    });
+  }
   getOwnerBooking(id: string) {
     const booking = this.visibleBooking(id, this.now());
     if (!booking) throw new CalendarError('NOT_FOUND', 'Запись не найдена', undefined, 404);

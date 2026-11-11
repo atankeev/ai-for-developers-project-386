@@ -351,6 +351,45 @@ export type GetOwnerBookingResponses = {
 
 export type GetOwnerBookingResponse = GetOwnerBookingResponses[keyof GetOwnerBookingResponses];
 
+export type CancelBookingData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/owner/bookings/{id}/cancel';
+};
+
+export type CancelBookingErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type CancelBookingError = CancelBookingErrors[keyof CancelBookingErrors];
+
+export type CancelBookingResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: OwnerBooking;
+};
+
+export type CancelBookingResponse = CancelBookingResponses[keyof CancelBookingResponses];
+
 export type OwnerLoginData = {
     body: LoginRequest;
     path?: never;

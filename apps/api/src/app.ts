@@ -162,6 +162,9 @@ export function buildApp(
       async getConfirmation(request: FastifyRequest<{ Params: { token: string } }>) {
         return calendar.getConfirmation(request.params.token);
       },
+      async cancelBooking(request: FastifyRequest<{ Params: { id: string } }>) {
+        return calendar.cancelBooking(request.params.id);
+      },
       async getOwnerBooking(request: FastifyRequest<{ Params: { id: string } }>) {
         return calendar.getOwnerBooking(request.params.id);
       },

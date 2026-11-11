@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import Button from 'primevue/button';
 import { getConfirmation, type GuestBooking } from '@call-calendar/api-contract';
@@ -46,6 +46,14 @@ async function copy() {
     copyFailed.value = true;
   }
 }
+function visible() {
+  if (document.visibilityState === 'visible') void load();
+}
+onMounted(() => document.addEventListener('visibilitychange', visible));
+onBeforeUnmount(() => {
+  generation++;
+  document.removeEventListener('visibilitychange', visible);
+});
 watch(() => route.params.token, load, { immediate: true });
 </script>
 <template>
@@ -75,6 +83,7 @@ watch(() => route.params.token, load, { immediate: true });
       <p v-if="copied" role="status">Ссылка скопирована</p>
       <p v-if="copyFailed" role="status">Выделите и скопируйте ссылку из поля вручную.</p>
     </section>
+    <Button label="Обновить статус" :disabled="loading" @click="load" />
     <p><RouterLink to="/book">Записаться ещё</RouterLink></p>
   </main>
 </template>

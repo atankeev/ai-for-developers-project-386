@@ -7,7 +7,7 @@ export const test = base.extend<{
   owner: { login: string; password: string };
   api: void;
   serverClock: { now: number };
-  bookingFault: { dropNext: boolean; dropBefore: boolean };
+  bookingFault: { dropNext: boolean; dropBefore: boolean; cancelDropNext: boolean };
 }>({
   serverClock: async ({ browserName }, use) => {
     void browserName;
@@ -15,7 +15,7 @@ export const test = base.extend<{
   },
   bookingFault: async ({ browserName }, use) => {
     void browserName;
-    await use({ dropNext: false, dropBefore: false });
+    await use({ dropNext: false, dropBefore: false, cancelDropNext: false });
   },
   owner: async ({ browserName }, use) => {
     await use({
@@ -47,6 +47,11 @@ export const test = base.extend<{
         });
         if (incoming.pathname === '/api/bookings' && bookingFault.dropNext && response.ok()) {
           bookingFault.dropNext = false;
+          await route.abort();
+          return;
+        }
+        if (incoming.pathname.endsWith('/cancel') && bookingFault.cancelDropNext && response.ok()) {
+          bookingFault.cancelDropNext = false;
           await route.abort();
           return;
         }

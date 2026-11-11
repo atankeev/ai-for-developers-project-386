@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import Button from 'primevue/button';
-import { listOwnerBookings, type OwnerBooking } from '@call-calendar/api-contract';
+import {
+  listOwnerBookings,
+  cancelBooking,
+  getOwnerBooking,
+  type OwnerBooking,
+} from '@call-calendar/api-contract';
 import { SessionExpired } from './api.js';
-type Group = 'upcoming' | 'past';
+type Group = 'upcoming' | 'past' | 'cancelled';
 type Page = {
   items: OwnerBooking[];
   nextCursor: string | null;
@@ -15,8 +20,13 @@ type Page = {
 const groups = [
   { id: 'upcoming' as const, label: 'Предстоящие и текущие', empty: 'Предстоящих встреч нет' },
   { id: 'past' as const, label: 'Прошедшие', empty: 'Прошедших встреч нет' },
+  { id: 'cancelled' as const, label: 'Отменённые', empty: 'Отменённых встреч нет' },
 ];
-const pages = reactive<Record<Group, Page>>({ upcoming: empty(), past: empty() });
+const pages = reactive<Record<Group, Page>>({
+  upcoming: empty(),
+  past: empty(),
+  cancelled: empty(),
+});
 function empty(): Page {
   return {
     items: [],
@@ -95,7 +105,7 @@ function select(target: Group) {
   if (!pages[target].loaded && !pages[target].loading) void load(target);
 }
 function refresh() {
-  for (const target of ['upcoming', 'past'] as const) {
+  for (const target of ['upcoming', 'past', 'cancelled'] as const) {
     pages[target].generation++;
     pages[target].loading = false;
     if (target !== group.value)
@@ -124,6 +134,89 @@ function scheduleBoundary() {
       Math.min(2147483647, Math.max(1, Math.min(...boundaries) - now.value)),
     );
 }
+const dialog = ref<HTMLDialogElement>();
+const selected = ref<OwnerBooking>();
+const busy = ref(false);
+const checkFailed = ref(false);
+const notice = ref('');
+let trigger: HTMLElement | undefined;
+async function openCancellation(booking: OwnerBooking, event: MouseEvent) {
+  selected.value = booking;
+  checkFailed.value = false;
+  notice.value = '';
+  trigger = event.currentTarget as HTMLElement;
+  await nextTick();
+  dialog.value?.showModal();
+  dialog.value?.querySelector<HTMLButtonElement>('[data-safe]')?.focus();
+}
+function closeCancellation() {
+  if (busy.value) return;
+  dialog.value?.close();
+  selected.value = undefined;
+  trigger?.focus();
+}
+function applyBooking(booking: OwnerBooking) {
+  for (const target of ['upcoming', 'past', 'cancelled'] as const)
+    pages[target].items = pages[target].items.filter((item) => item.id !== booking.id);
+  const target =
+    booking.status === 'cancelled'
+      ? 'cancelled'
+      : Date.parse(booking.endsAt) <= Date.now()
+        ? 'past'
+        : 'upcoming';
+  if (pages[target].loaded) {
+    pages[target].items.push(booking);
+    pages[target].items.sort((a, b) =>
+      target === 'upcoming'
+        ? a.startsAt.localeCompare(b.startsAt) || a.id.localeCompare(b.id)
+        : b.startsAt.localeCompare(a.startsAt) || b.id.localeCompare(a.id),
+    );
+  }
+  scheduleBoundary();
+}
+async function checkCancellation() {
+  if (!selected.value) return;
+  busy.value = true;
+  checkFailed.value = false;
+  try {
+    const result = await getOwnerBooking({ path: { id: selected.value.id } });
+    if (!result.data) throw new Error();
+    selected.value = result.data;
+    applyBooking(result.data);
+    if (result.data.status === 'cancelled') {
+      notice.value = 'Запись отменена';
+      busy.value = false;
+      closeCancellation();
+    } else if (Date.parse(result.data.startsAt) <= Date.now()) {
+      notice.value = 'Отмена недоступна: встреча уже началась';
+      busy.value = false;
+      closeCancellation();
+    } else notice.value = 'Запись действует. Можно подтвердить отмену вручную.';
+  } catch (error) {
+    if (!(error instanceof SessionExpired)) checkFailed.value = true;
+  } finally {
+    busy.value = false;
+  }
+}
+async function confirmCancellation() {
+  if (!selected.value || busy.value || checkFailed.value) return;
+  busy.value = true;
+  try {
+    const result = await cancelBooking({ path: { id: selected.value.id } });
+    if (result.data) {
+      applyBooking(result.data);
+      notice.value = 'Запись отменена';
+      busy.value = false;
+      closeCancellation();
+    } else if (result.error?.code === 'CANCELLATION_UNAVAILABLE') {
+      await checkCancellation();
+    } else await checkCancellation();
+  } catch (error) {
+    if (!(error instanceof SessionExpired)) await checkCancellation();
+  } finally {
+    busy.value = false;
+  }
+}
 function visible() {
   if (document.visibilityState === 'visible') refresh();
 }
@@ -142,6 +235,28 @@ onBeforeUnmount(() => {
 <template>
   <section class="owner-bookings">
     <h1>Встречи</h1>
+    <p v-if="notice" role="status">{{ notice }}</p>
+    <dialog ref="dialog" aria-labelledby="cancel-title" @cancel.prevent="closeCancellation">
+      <template v-if="selected">
+        <h2 id="cancel-title">Отменить запись?</h2>
+        <p>{{ selected.title }}</p>
+        <p>{{ format(selected.startsAt) }} — {{ format(selected.endsAt) }} (Москва)</p>
+        <p>{{ selected.guestName }}</p>
+        <p v-if="checkFailed" role="alert">Не удалось проверить результат отмены</p>
+        <p v-if="notice" role="status">{{ notice }}</p>
+        <div class="booking-groups">
+          <Button data-safe label="Оставить запись" :disabled="busy" @click="closeCancellation" />
+          <Button
+            v-if="checkFailed"
+            label="Повторить проверку"
+            :disabled="busy"
+            @click="checkCancellation"
+          />
+          <Button v-else label="Подтвердить отмену" :disabled="busy" @click="confirmCancellation" />
+        </div>
+        <p v-if="busy" role="status">Проверяем запись…</p>
+      </template>
+    </dialog>
     <nav aria-label="Группы встреч" class="booking-groups">
       <Button
         v-for="option in groups"
@@ -168,6 +283,13 @@ onBeforeUnmount(() => {
     </p>
     <article v-for="booking in current.items" :key="booking.id" class="meeting-card">
       <h3>{{ booking.title }}</h3>
+      <p v-if="booking.status === 'cancelled'">Запись отменена</p>
+      <Button
+        v-if="booking.status === 'confirmed' && Date.parse(booking.startsAt) > now"
+        label="Отменить запись"
+        :disabled="busy"
+        @click="openCancellation(booking, $event)"
+      />
       <strong v-if="group === 'upcoming' && Date.parse(booking.startsAt) <= now">Идёт</strong>
       <p>{{ format(booking.startsAt) }} — {{ format(booking.endsAt) }} (Москва)</p>
       <p>{{ booking.durationMinutes }} минут</p>
@@ -200,6 +322,16 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+dialog {
+  max-width: min(32rem, calc(100vw - 2rem));
+  border-radius: 0.75rem;
+  border: 1px solid #94a3b8;
+  padding: 1.25rem;
+  overflow-wrap: anywhere;
+}
+dialog::backdrop {
+  background: #0006;
+}
 .owner-bookings {
   width: 100%;
   max-width: 48rem;
