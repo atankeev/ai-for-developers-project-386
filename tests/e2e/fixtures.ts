@@ -6,8 +6,13 @@ import { hashPassword, readOwnerConfig } from '../../apps/api/src/auth.js';
 export const test = base.extend<{
   owner: { login: string; password: string };
   api: void;
+  serverClock: { now: number };
   bookingFault: { dropNext: boolean; dropBefore: boolean };
 }>({
+  serverClock: async ({ browserName }, use) => {
+    void browserName;
+    await use({ now: Date.parse('2026-11-09T06:00:00Z') });
+  },
   bookingFault: async ({ browserName }, use) => {
     void browserName;
     await use({ dropNext: false, dropBefore: false });
@@ -19,14 +24,15 @@ export const test = base.extend<{
     });
   },
   api: [
-    async ({ page, owner, bookingFault }, use) => {
+    async ({ page, owner, bookingFault, serverClock }, use) => {
       const config = readOwnerConfig({
         OWNER_LOGIN: owner.login,
         OWNER_PASSWORD_HASH: hashPassword(owner.password),
         OWNER_COOKIE_SECRET: randomBytes(48).toString('hex'),
         OWNER_ALLOWED_ORIGIN: 'http://127.0.0.1:4174',
       });
-      const app = buildApp({ config, now: () => Date.parse('2026-11-09T06:00:00Z') });
+      await page.clock.install({ time: serverClock.now });
+      const app = buildApp({ config, now: () => serverClock.now });
       const baseUrl = await app.listen({ host: '127.0.0.1', port: 0 });
       // Transport routing only: each browser test owns a real isolated HTTP API process state.
       await page.route('**/api/**', async (route) => {

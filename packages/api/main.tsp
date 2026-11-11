@@ -87,6 +87,7 @@ model OwnerBooking {
  startsAt: string; endsAt: string; status: "confirmed" | "cancelled"; cancelledAt: string | null;
  guestName: string; guestEmail: string; comment: string;
 }
+/** Live keyset pages contain at most 20 bookings. A cursor belongs to exactly one group. */
 model OwnerBookings { items: OwnerBooking[]; nextCursor: string | null; }
 @route("/api/bookings") @post @operationId("createBooking")
 op createBooking(@body body: CreateBookingRequest): BookingResult | BadRequest | NotFound;

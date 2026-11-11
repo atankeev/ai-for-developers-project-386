@@ -965,7 +965,8 @@
             "type": "string",
             "nullable": true
           }
-        }
+        },
+        "description": "Live keyset pages contain at most 20 bookings. A cursor belongs to exactly one group."
       },
       "OwnerMeetingTypes": {
         "type": "object",

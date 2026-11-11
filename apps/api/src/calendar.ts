@@ -1,3 +1,4 @@
+import { bookingPage } from './booking-pages.js';
 import {
   normalizeBooking,
   makeBooking,
@@ -102,18 +103,9 @@ export class Calendar {
     return ownerBooking(booking);
   }
   listOwnerBookings(group: string, cursor?: string) {
-    if (group !== 'upcoming' || cursor)
-      throw new CalendarError('VALIDATION_ERROR', 'Недоступная группа или курсор');
-    const now = this.now();
-    return {
-      items: [...this.bookings.values()]
-        .filter((b) => b.status === 'confirmed' && Date.parse(b.endsAt) > now)
-        .sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.id.localeCompare(b.id))
-        .slice(0, 20)
-        .map(ownerBooking),
-      nextCursor: null,
-    };
+    return bookingPage(this.bookings.values(), group, cursor, this.now());
   }
+
   readonly meetingTypes = new Map<string, MeetingType>();
   private mutations: Promise<unknown> = Promise.resolve();
   constructor(readonly now: () => number) {}

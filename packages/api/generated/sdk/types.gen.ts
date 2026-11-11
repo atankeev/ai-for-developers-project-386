@@ -104,6 +104,9 @@ export type OwnerBooking = {
     comment: string;
 };
 
+/**
+ * Live keyset pages contain at most 20 bookings. A cursor belongs to exactly one group.
+ */
 export type OwnerBookings = {
     items: Array<OwnerBooking>;
     nextCursor: string | null;
