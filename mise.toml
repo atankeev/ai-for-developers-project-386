@@ -20,7 +20,11 @@ run = "npm run generate"
 
 [tasks.check]
 description = "Run all project checks, including hooks and workflow validation"
-run = ["npm run check", "hk validate", "jactionlint --shellcheck= .github/workflows/check.yml"]
+run = [
+  "npm run check",
+  "hk validate",
+  "jactionlint --shellcheck= .github/workflows/check.yml .github/workflows/release-please.yml",
+]
 
 [tasks.lint]
 run = "npm run lint"

@@ -109,6 +109,26 @@ TypeScript закреплён на 6.x для совместимости с ин
 
 В `package.json` закреплены исправленные транзитивные версии `js-yaml` и `undici` через `overrides`: генераторы пока требуют старые версии. На момент сборки каркаса `npm audit` сообщает о предупреждениях средней серьёзности в цепочке зависимостей ESLint (`minimatch`). Их устранение требует отдельной проверки совместимости; `audit fix --force` не применяется.
 
+## Релизы
+
+[Release Please](https://github.com/googleapis/release-please-action) запускается
+при push в `main` и вручную через GitHub Actions. По Conventional Commits он
+создаёт и обновляет release PR с новой версией и `CHANGELOG.md`. После слияния
+этого PR следующий запуск создаёт тег `vX.Y.Z` и GitHub Release.
+
+Приложение выпускается целиком: версия хранится в корневом `package.json` и
+синхронизируется с `package-lock.json` и `.release-please-manifest.json`.
+Начальная версия — `0.0.0`; до `1.0.0` коммиты `feat:` повышают minor,
+`fix:` — patch, breaking changes — minor. Внутренние workspace-пакеты остаются
+приватными со своими версиями; публикация в npm не выполняется.
+
+Workflow использует встроенный `GITHUB_TOKEN`, отдельный секрет не нужен.
+В Settings → Actions → General должно быть включено
+«Allow GitHub Actions to create and approve pull requests».
+PR и теги, созданные этим токеном, не запускают другие workflows автоматически.
+Перед слиянием release PR проверьте его ветку командой `mise run check`;
+после слияния push в `main` запускает обычные проверки проекта.
+
 ## Использование
 
 Целевой сценарий от создания типа встречи до появления записи в списке владельца (будет реализован на следующих шагах):
