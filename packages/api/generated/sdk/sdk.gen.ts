@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetConfirmationData, GetConfirmationErrors, GetConfirmationResponses, GetHealthData, GetHealthResponses, GetOwnerBookingData, GetOwnerBookingErrors, GetOwnerBookingResponses, GetOwnerScheduleData, GetOwnerScheduleErrors, GetOwnerScheduleResponses, ListOwnerBookingsData, ListOwnerBookingsErrors, ListOwnerBookingsResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses, ReplaceWeeklyScheduleData, ReplaceWeeklyScheduleErrors, ReplaceWeeklyScheduleResponses } from './types.gen.js';
+import type { CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, DeleteScheduleExceptionData, DeleteScheduleExceptionErrors, DeleteScheduleExceptionResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetConfirmationData, GetConfirmationErrors, GetConfirmationResponses, GetHealthData, GetHealthResponses, GetOwnerBookingData, GetOwnerBookingErrors, GetOwnerBookingResponses, GetOwnerScheduleData, GetOwnerScheduleErrors, GetOwnerScheduleResponses, GetScheduleExceptionData, GetScheduleExceptionErrors, GetScheduleExceptionResponses, ListOwnerBookingsData, ListOwnerBookingsErrors, ListOwnerBookingsResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses, ReplaceScheduleExceptionData, ReplaceScheduleExceptionErrors, ReplaceScheduleExceptionResponses, ReplaceWeeklyScheduleData, ReplaceWeeklyScheduleErrors, ReplaceWeeklyScheduleResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -65,6 +65,19 @@ export const getOwnerSchedule = <ThrowOnError extends boolean = false>(options?:
 
 export const replaceWeeklySchedule = <ThrowOnError extends boolean = false>(options: Options<ReplaceWeeklyScheduleData, ThrowOnError>): RequestResult<ReplaceWeeklyScheduleResponses, ReplaceWeeklyScheduleErrors, ThrowOnError> => (options.client ?? client).put<ReplaceWeeklyScheduleResponses, ReplaceWeeklyScheduleErrors, ThrowOnError>({
     url: '/api/owner/schedule',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const deleteScheduleException = <ThrowOnError extends boolean = false>(options: Options<DeleteScheduleExceptionData, ThrowOnError>): RequestResult<DeleteScheduleExceptionResponses, DeleteScheduleExceptionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteScheduleExceptionResponses, DeleteScheduleExceptionErrors, ThrowOnError>({ url: '/api/owner/schedule/exceptions/{date}', ...options });
+
+export const getScheduleException = <ThrowOnError extends boolean = false>(options: Options<GetScheduleExceptionData, ThrowOnError>): RequestResult<GetScheduleExceptionResponses, GetScheduleExceptionErrors, ThrowOnError> => (options.client ?? client).get<GetScheduleExceptionResponses, GetScheduleExceptionErrors, ThrowOnError>({ url: '/api/owner/schedule/exceptions/{date}', ...options });
+
+export const replaceScheduleException = <ThrowOnError extends boolean = false>(options: Options<ReplaceScheduleExceptionData, ThrowOnError>): RequestResult<ReplaceScheduleExceptionResponses, ReplaceScheduleExceptionErrors, ThrowOnError> => (options.client ?? client).put<ReplaceScheduleExceptionResponses, ReplaceScheduleExceptionErrors, ThrowOnError>({
+    url: '/api/owner/schedule/exceptions/{date}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

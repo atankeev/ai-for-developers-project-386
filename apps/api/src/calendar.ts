@@ -15,9 +15,11 @@ import type {
   PublicMeetingType,
   WeeklySchedule,
   ReplaceWeeklyScheduleRequest,
+  ReplaceScheduleExceptionRequest,
 } from '@call-calendar/api-contract';
 
-import { validateWeek, bookingDates, slotsForDate, minutes } from './schedule.js';
+import { ScheduleExceptions } from './exceptions.js';
+import { validateWeek, bookingDates, slotsForDate, minutes, moscowDate } from './schedule.js';
 
 export class CalendarError extends Error {
   constructor(
@@ -32,12 +34,14 @@ export class CalendarError extends Error {
 
 /** One instance per app. All domain mutations share this queue; callbacks stay synchronous. */
 export class Calendar {
+  private readonly exceptions = new ScheduleExceptions();
   private schedule: WeeklySchedule = {
+    exceptions: [],
     version: 1,
     days: [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, intervals: [] })),
   };
   getOwnerSchedule() {
-    return structuredClone(this.schedule);
+    return { ...structuredClone(this.schedule), exceptions: this.exceptions.list() };
   }
   replaceWeeklySchedule(input: ReplaceWeeklyScheduleRequest) {
     return this.mutate(() => {
@@ -48,9 +52,24 @@ export class Calendar {
           'Расписание изменилось. Загрузите актуальные данные',
         );
       if (JSON.stringify(days) !== JSON.stringify(this.schedule.days))
-        this.schedule = { version: this.schedule.version + 1, days };
+        this.schedule = { version: this.schedule.version + 1, days, exceptions: [] };
       return this.getOwnerSchedule();
     });
+  }
+  getScheduleException(date: string) {
+    return this.exceptions.get(date);
+  }
+  replaceScheduleException(date: string, input: ReplaceScheduleExceptionRequest) {
+    return this.mutate(() => this.exceptions.replace(date, input.expectedVersion, input.intervals));
+  }
+  deleteScheduleException(date: string, expectedVersion: number) {
+    return this.mutate(() => this.exceptions.replace(date, expectedVersion, null));
+  }
+  effectiveIntervals(date: string) {
+    return (
+      this.exceptions.get(date).intervals ??
+      this.schedule.days.find((entry) => entry.day === (new Date(date).getUTCDay() || 7))!.intervals
+    );
   }
   readonly bookings = new Map<string, Booking>();
   readonly confirmationIndex = new Map<string, string>();
@@ -117,7 +136,7 @@ export class Calendar {
   }
 
   createMeetingType(input: CreateMeetingTypeRequest) {
-    return this.mutate(() => {
+    return this.mutate((now) => {
       const title = input.title.trim();
       const description = input.description ?? '';
       const errors: Record<string, string> = {};
@@ -152,8 +171,11 @@ export class Calendar {
       this.meetingTypes.set(meetingType.id, meetingType);
       return {
         meetingType: { ...meetingType },
-        warnings: this.schedule.days.some((day) =>
-          day.intervals.some(
+        warnings: [
+          ...this.schedule.days,
+          ...this.exceptions.list().filter((entry) => entry.date >= moscowDate(now)),
+        ].some((day) =>
+          day.intervals?.some(
             (interval) => minutes(interval.end) - minutes(interval.start) >= input.durationMinutes,
           ),
         )
@@ -193,7 +215,7 @@ export class Calendar {
   private availability(type: MeetingType, now: number, filterOccupied = true) {
     const days = bookingDates(now).map((date) => ({
       date,
-      slots: slotsForDate(date, type.durationMinutes, this.schedule, now).filter(
+      slots: slotsForDate(date, type.durationMinutes, this.effectiveIntervals(date), now).filter(
         (slot) =>
           !filterOccupied ||
           ![...this.bookings.values()].some((booking) =>

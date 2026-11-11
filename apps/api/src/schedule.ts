@@ -1,4 +1,8 @@
-import type { ReplaceWeeklyScheduleRequest, WeeklySchedule } from '@call-calendar/api-contract';
+import type {
+  ReplaceWeeklyScheduleRequest,
+  WeeklySchedule,
+  WorkingInterval,
+} from '@call-calendar/api-contract';
 import { CalendarError } from './calendar.js';
 
 /** Local working hours stay local; adjacent intervals deliberately remain separate. */
@@ -14,27 +18,35 @@ export function validateWeek(input: ReplaceWeeklyScheduleRequest): WeeklySchedul
     errors.days = 'Укажите все семь дней недели ровно один раз';
   const days = input.days
     .map((day) => {
-      const intervals = day.intervals
-        .map((interval) => ({ ...interval }))
-        .sort((a, b) => a.start.localeCompare(b.start));
-      let previousEnd = 0;
-      for (const interval of intervals) {
-        if (
-          !/^([01]\d|2[0-3]):[0-5]\d$/.test(interval.start) ||
-          !/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/.test(interval.end) ||
-          minutes(interval.start) >= minutes(interval.end) ||
-          minutes(interval.start) < previousEnd
-        )
-          errors[`days.${day.day}`] =
-            'Часы должны быть HH:mm: начало раньше конца, без пересечений; 24:00 допустимо только в конце';
-        previousEnd = minutes(interval.end);
-      }
+      const intervals = validateIntervals(day.intervals, `days.${day.day}`, errors);
       return { day: day.day, intervals };
     })
     .sort((a, b) => a.day - b.day);
   if (Object.keys(errors).length)
     throw new CalendarError('VALIDATION_ERROR', 'Проверьте часы расписания', errors);
   return days;
+}
+export function validateIntervals(
+  input: WorkingInterval[],
+  field: string,
+  errors: Record<string, string>,
+) {
+  const intervals = input
+    .map((interval) => ({ ...interval }))
+    .sort((a, b) => a.start.localeCompare(b.start));
+  let previousEnd = 0;
+  for (const interval of intervals) {
+    if (
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(interval.start) ||
+      !/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/.test(interval.end) ||
+      minutes(interval.start) >= minutes(interval.end) ||
+      minutes(interval.start) < previousEnd
+    )
+      errors[field] =
+        'Часы должны быть HH:mm: начало раньше конца, без пересечений; 24:00 допустимо только в конце';
+    previousEnd = minutes(interval.end);
+  }
+  return intervals;
 }
 export function minutes(value: string) {
   const [h, m] = value.split(':').map(Number);
@@ -51,13 +63,12 @@ export function bookingDates(now: number) {
 export function slotsForDate(
   date: string,
   duration: number,
-  schedule: WeeklySchedule,
+  intervals: WorkingInterval[],
   now: number,
 ) {
-  const day = new Date(date).getUTCDay() || 7;
   const midnight = Date.parse(`${date}T00:00:00+03:00`);
   const slots: { startsAt: string; endsAt: string }[] = [];
-  for (const interval of schedule.days.find((entry) => entry.day === day)!.intervals) {
+  for (const interval of intervals) {
     for (
       let start = minutes(interval.start);
       start + duration <= minutes(interval.end);
