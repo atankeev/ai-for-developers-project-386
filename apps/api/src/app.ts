@@ -9,6 +9,7 @@ import type {
   HealthResponse,
   LoginRequest,
   CreateMeetingTypeRequest,
+  ReplaceMeetingTypeRequest,
   ReplaceWeeklyScheduleRequest,
   ReplaceScheduleExceptionRequest,
 } from '@call-calendar/api-contract';
@@ -164,6 +165,11 @@ export function buildApp(
       },
       async replaceWeeklySchedule(request: FastifyRequest<{ Body: ReplaceWeeklyScheduleRequest }>) {
         return calendar.replaceWeeklySchedule(request.body);
+      },
+      async replaceMeetingType(
+        request: FastifyRequest<{ Params: { id: string }; Body: ReplaceMeetingTypeRequest }>,
+      ) {
+        return calendar.replaceMeetingType(request.params.id, request.body);
       },
       async createMeetingType(request: FastifyRequest<{ Body: CreateMeetingTypeRequest }>) {
         return calendar.createMeetingType(request.body);

@@ -80,7 +80,10 @@ watch(() => route.params.id, load, { immediate: true });
     <div v-else-if="failed" role="alert">
       Не удалось загрузить данные. <Button label="Повторить" @click="load" />
     </div>
-    <p v-else-if="missing">Тип встречи не найден</p>
+    <div v-else-if="missing">
+      <p>Тип встречи не найден</p>
+      <p role="alert">Тип встречи недоступен. Выберите другую встречу в каталоге.</p>
+    </div>
     <template v-else-if="type">
       <p class="plain-text">{{ type.description }}</p>
       <p>{{ type.durationMinutes }} минут</p>
