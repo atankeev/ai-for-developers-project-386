@@ -120,6 +120,14 @@ export type PublicMeetingType = {
     durationMinutes: number;
 };
 
+export type ReplaceMeetingTypeRequest = {
+    title: string;
+    description: string;
+    durationMinutes: number;
+    hidden: boolean;
+    expectedVersion: number;
+};
+
 export type ReplaceWeeklyScheduleRequest = {
     expectedVersion: number;
     days: Array<WeekdaySchedule>;
@@ -451,6 +459,45 @@ export type CreateMeetingTypeResponses = {
 };
 
 export type CreateMeetingTypeResponse = CreateMeetingTypeResponses[keyof CreateMeetingTypeResponses];
+
+export type ReplaceMeetingTypeData = {
+    body: ReplaceMeetingTypeRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/owner/meeting-types/{id}';
+};
+
+export type ReplaceMeetingTypeErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type ReplaceMeetingTypeError = ReplaceMeetingTypeErrors[keyof ReplaceMeetingTypeErrors];
+
+export type ReplaceMeetingTypeResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: MeetingTypeResult;
+};
+
+export type ReplaceMeetingTypeResponse = ReplaceMeetingTypeResponses[keyof ReplaceMeetingTypeResponses];
 
 export type GetOwnerScheduleData = {
     body?: never;

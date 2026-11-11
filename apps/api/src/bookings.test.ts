@@ -3,6 +3,9 @@ import { expect, test } from 'vitest';
 import {
   createBooking,
   createMeetingType,
+  replaceMeetingType,
+  listOwnerMeetingTypes,
+  getCatalog,
   replaceWeeklySchedule,
   ownerLogin,
   getConfirmation,
@@ -306,6 +309,222 @@ test('owner first view returns at most twenty bookings in start order', async ()
     expect(result.items).toHaveLength(20);
     expect(result.items[0]!.startsAt).toBe('2026-11-10T06:00:00.000Z');
     expect(result.items[19]!.startsAt).toBe('2026-11-11T06:30:00.000Z');
+  } finally {
+    await app.close();
+  }
+});
+
+test('owner replaces a complete type with optimistic versions; concurrent writes and stale no-ops do not overwrite', async () => {
+  const { app, client, headers, type } = await server();
+  try {
+    const body = {
+      title: 'Renamed',
+      description: '',
+      durationMinutes: 45,
+      hidden: true,
+      expectedVersion: 1,
+    };
+    const results = await Promise.all(
+      [1, 2].map(() => replaceMeetingType({ client, headers, path: { id: type.id }, body })),
+    );
+    expect(results.filter((r) => r.data)).toHaveLength(1);
+    expect(results.find((r) => r.error)?.error?.code).toBe('VERSION_CONFLICT');
+    const current = results.find((r) => r.data)!.data!.meetingType;
+    expect(current).toEqual({
+      id: type.id,
+      title: 'Renamed',
+      description: '',
+      durationMinutes: 45,
+      hidden: true,
+      version: 2,
+    });
+    expect(
+      (
+        await replaceMeetingType({
+          client,
+          headers,
+          path: { id: type.id },
+          body: { ...body, expectedVersion: 2 },
+        })
+      ).data!.meetingType.version,
+    ).toBe(2);
+    expect(
+      (await replaceMeetingType({ client, headers, path: { id: type.id }, body })).error?.code,
+    ).toBe('VERSION_CONFLICT');
+    expect((await listOwnerMeetingTypes({ client, headers })).data!.items).toEqual([current]);
+    expect((await getCatalog({ client })).data!.items).toEqual([]);
+  } finally {
+    await app.close();
+  }
+});
+
+test('hidden type is private, reserves its unique title, can be edited and restored at the same link', async () => {
+  const { app, client, headers, type, body } = await server();
+  try {
+    const path = { id: type.id };
+    const replacement = {
+      title: '😀'.repeat(100),
+      description: 'x'.repeat(2000),
+      durationMinutes: 1440,
+      hidden: true,
+      expectedVersion: 1,
+    };
+    expect(
+      (
+        await replaceMeetingType({
+          client,
+          headers: { Origin: headers.Origin },
+          path,
+          body: replacement,
+        })
+      ).response!.status,
+    ).toBe(401);
+    expect(
+      (
+        await replaceMeetingType({
+          client,
+          headers: { Cookie: headers.Cookie },
+          path,
+          body: replacement,
+        })
+      ).response!.status,
+    ).toBe(403);
+    for (const invalid of [
+      { title: '😀'.repeat(101) },
+      { description: '😀'.repeat(2001) },
+      { durationMinutes: 0 },
+      { durationMinutes: 1441 },
+    ]) {
+      const result = await replaceMeetingType({
+        client,
+        headers,
+        path,
+        body: { ...replacement, ...invalid },
+      });
+      expect(result.error?.code).toBe('VALIDATION_ERROR');
+    }
+    const hidden = await replaceMeetingType({ client, headers, path, body: replacement });
+    expect(hidden.response!.headers.get('cache-control')).toBe('no-store');
+    expect(hidden.data!.warnings[0]?.code).toBe('DURATION_EXCEEDS_WORKING_INTERVALS');
+    expect(
+      (
+        await createMeetingType({
+          client,
+          headers,
+          body: { title: ` ${replacement.title} `, durationMinutes: 30 },
+        })
+      ).error?.code,
+    ).toBe('MEETING_TYPE_TITLE_EXISTS');
+    const other = (
+      await createMeetingType({ client, headers, body: { title: 'Other', durationMinutes: 30 } })
+    ).data!.meetingType;
+    expect(
+      (
+        await replaceMeetingType({
+          client,
+          headers,
+          path: { id: other.id },
+          body: { ...replacement, title: ` ${replacement.title} ` },
+        })
+      ).error?.code,
+    ).toBe('MEETING_TYPE_TITLE_EXISTS');
+    for (const id of [type.id, randomUUID()]) {
+      expect((await getAvailability({ client, path: { id } })).response!.status).toBe(404);
+      const denied = await createBooking({ client, body: { ...body, meetingTypeId: id } });
+      expect(denied.response!.status).toBe(404);
+      expect(denied.error).toEqual({ code: 'NOT_FOUND', message: 'Тип встречи не найден' });
+    }
+    const restored = await replaceMeetingType({
+      client,
+      headers,
+      path,
+      body: {
+        ...replacement,
+        title: ' Restored ',
+        description: '',
+        durationMinutes: 17,
+        hidden: false,
+        expectedVersion: 2,
+      },
+    });
+    expect(restored.data!.meetingType).toMatchObject({
+      id: type.id,
+      title: 'Restored',
+      version: 3,
+      hidden: false,
+    });
+    expect((await getAvailability({ client, path })).data!.meetingType).toEqual({
+      id: type.id,
+      title: 'Restored',
+      description: '',
+      durationMinutes: 17,
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test('booking uses current conditions and preserves snapshot, occupied interval and successful retry after editing and hiding', async () => {
+  const { app, client, headers, type, body } = await server();
+  try {
+    const path = { id: type.id };
+    const replacement = {
+      title: 'Current',
+      description: 'Current description',
+      durationMinutes: 60,
+      hidden: false,
+      expectedVersion: 1,
+    };
+    await replaceMeetingType({ client, headers, path, body: replacement });
+    const booked = (await createBooking({ client, body })).data!;
+    expect(booked.booking).toMatchObject({ title: 'Current', endsAt: '2026-11-10T07:00:00.000Z' });
+    const snapshot = (await getOwnerBooking({ client, headers, path: { id: booked.booking.id } }))
+      .data!;
+    expect(snapshot).toMatchObject({
+      title: 'Current',
+      description: 'Current description',
+      durationMinutes: 60,
+    });
+    await replaceMeetingType({
+      client,
+      headers,
+      path,
+      body: {
+        ...replacement,
+        title: 'Hidden',
+        description: '',
+        durationMinutes: 120,
+        hidden: true,
+        expectedVersion: 2,
+      },
+    });
+    expect((await createBooking({ client, body })).data).toEqual(booked);
+    expect(
+      (await getOwnerBooking({ client, headers, path: { id: booked.booking.id } })).data,
+    ).toEqual(snapshot);
+    const other = (
+      await createMeetingType({ client, headers, body: { title: 'Other', durationMinutes: 30 } })
+    ).data!.meetingType;
+    const slots = (await getAvailability({ client, path: { id: other.id } })).data!.days[0]!.slots;
+    expect(slots[0]).toEqual({
+      startsAt: '2026-11-10T07:00:00.000Z',
+      endsAt: '2026-11-10T07:30:00.000Z',
+    });
+    await replaceMeetingType({
+      client,
+      headers,
+      path,
+      body: { ...replacement, durationMinutes: 1440, expectedVersion: 3 },
+    });
+    expect(
+      (
+        await createBooking({
+          client,
+          body: { ...body, attemptId: randomUUID(), startsAt: '2026-11-11T06:00:00Z' },
+        })
+      ).error?.code,
+    ).toBe('TIME_UNAVAILABLE');
+    expect((await createBooking({ client, body })).data).toEqual(booked);
   } finally {
     await app.close();
   }

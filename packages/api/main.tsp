@@ -41,6 +41,7 @@ model NotFound { @statusCode statusCode: 404; @body body: ApiError; }
 model PublicMeetingType { id: string; title: string; description: string; durationMinutes: int32; }
 model MeetingType extends PublicMeetingType { hidden: boolean; version: int32; }
 model CreateMeetingTypeRequest { title: string; description?: string; durationMinutes: int32; }
+model ReplaceMeetingTypeRequest { title: string; description: string; durationMinutes: int32; hidden: boolean; expectedVersion: int32; }
 model Warning { code: "DURATION_EXCEEDS_WORKING_INTERVALS"; message: string; }
 model MeetingTypeResult { meetingType: MeetingType; warnings: Warning[]; }
 model OwnerMeetingTypes { items: MeetingType[]; }
@@ -59,6 +60,8 @@ model Availability {
 op listOwnerMeetingTypes(): OwnerMeetingTypes | Unauthenticated;
 @route("/api/owner/meeting-types") @post @operationId("createMeetingType")
 op createMeetingType(@body body: CreateMeetingTypeRequest): MeetingTypeResult | BadRequest | Unauthenticated | Forbidden;
+@route("/api/owner/meeting-types/{id}") @put @operationId("replaceMeetingType")
+op replaceMeetingType(@path id: string, @body body: ReplaceMeetingTypeRequest): MeetingTypeResult | BadRequest | NotFound | Unauthenticated | Forbidden;
 @route("/api/meeting-types") @get @operationId("getCatalog")
 op getCatalog(): Catalog;
 @route("/api/meeting-types/{id}/availability") @get @operationId("getAvailability")

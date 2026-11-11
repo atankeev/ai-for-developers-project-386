@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   CreateBookingRequest,
   CreateMeetingTypeRequest,
+  ReplaceMeetingTypeRequest,
   MeetingType,
   PublicMeetingType,
   WeeklySchedule,
@@ -114,6 +115,7 @@ export class Calendar {
       nextCursor: null,
     };
   }
+  private readonly meetingTypeTitles = new Map<string, string>();
   readonly meetingTypes = new Map<string, MeetingType>();
   private mutations: Promise<unknown> = Promise.resolve();
   constructor(readonly now: () => number) {}
@@ -126,29 +128,7 @@ export class Calendar {
 
   createMeetingType(input: CreateMeetingTypeRequest) {
     return this.mutate(() => {
-      const title = input.title.trim();
-      const description = input.description ?? '';
-      const errors: Record<string, string> = {};
-      if ([...title].length < 1 || [...title].length > 100)
-        errors.title = 'Название должно содержать от 1 до 100 символов';
-      if ([...description].length > 2000)
-        errors.description = 'Описание должно содержать не более 2000 символов';
-      if (
-        !Number.isInteger(input.durationMinutes) ||
-        input.durationMinutes < 1 ||
-        input.durationMinutes > 1440
-      )
-        errors.durationMinutes = 'Длительность должна быть целым числом от 1 до 1440 минут';
-      if (Object.keys(errors).length)
-        throw new CalendarError('VALIDATION_ERROR', 'Проверьте поля запроса', errors);
-      if (
-        [...this.meetingTypes.values()].some(
-          (type) => type.title.toLowerCase() === title.toLowerCase(),
-        )
-      )
-        throw new CalendarError('MEETING_TYPE_TITLE_EXISTS', 'Название уже используется', {
-          title: 'Название уже используется',
-        });
+      const { title, description } = this.validateMeetingType(input);
       const meetingType: MeetingType = {
         id: randomUUID(),
         title,
@@ -158,23 +138,85 @@ export class Calendar {
         version: 1,
       };
       this.meetingTypes.set(meetingType.id, meetingType);
-      return {
-        meetingType: { ...meetingType },
-        warnings: this.schedule.days.some((day) =>
-          day.intervals.some(
-            (interval) => minutes(interval.end) - minutes(interval.start) >= input.durationMinutes,
-          ),
-        )
-          ? []
-          : [
-              {
-                code: 'DURATION_EXCEEDS_WORKING_INTERVALS' as const,
-                message:
-                  'Длительность встречи превышает любой рабочий интервал. При текущем расписании запись невозможна',
-              },
-            ],
-      };
+      this.meetingTypeTitles.set(title.toLowerCase(), meetingType.id);
+      return this.meetingTypeResult(meetingType);
     });
+  }
+
+  replaceMeetingType(id: string, input: ReplaceMeetingTypeRequest) {
+    return this.mutate(() => {
+      const { title, description } = this.validateMeetingType(input, id);
+      const current = this.meetingTypes.get(id);
+      if (!current) throw new CalendarError('NOT_FOUND', 'Тип встречи не найден', undefined, 404);
+      if (input.expectedVersion !== current.version)
+        throw new CalendarError(
+          'VERSION_CONFLICT',
+          'Тип встречи изменился. Загрузите актуальные данные',
+        );
+      const changed =
+        current.title !== title ||
+        current.description !== description ||
+        current.durationMinutes !== input.durationMinutes ||
+        current.hidden !== input.hidden;
+      const meetingType = {
+        ...current,
+        title,
+        description,
+        durationMinutes: input.durationMinutes,
+        hidden: input.hidden,
+        version: current.version + (changed ? 1 : 0),
+      };
+      this.meetingTypeTitles.delete(current.title.toLowerCase());
+      this.meetingTypeTitles.set(title.toLowerCase(), id);
+      this.meetingTypes.set(id, meetingType);
+      return this.meetingTypeResult(meetingType);
+    });
+  }
+
+  private validateMeetingType(input: CreateMeetingTypeRequest, excludingId?: string) {
+    const title = input.title.trim();
+    const description = input.description ?? '';
+    const errors: Record<string, string> = {};
+    if ([...title].length < 1 || [...title].length > 100)
+      errors.title = 'Название должно содержать от 1 до 100 символов';
+    if ([...description].length > 2000)
+      errors.description = 'Описание должно содержать не более 2000 символов';
+    if (
+      !Number.isInteger(input.durationMinutes) ||
+      input.durationMinutes < 1 ||
+      input.durationMinutes > 1440
+    )
+      errors.durationMinutes = 'Длительность должна быть целым числом от 1 до 1440 минут';
+    if (Object.keys(errors).length)
+      throw new CalendarError('VALIDATION_ERROR', 'Проверьте поля запроса', errors);
+    if (
+      this.meetingTypeTitles.has(title.toLowerCase()) &&
+      this.meetingTypeTitles.get(title.toLowerCase()) !== excludingId
+    )
+      throw new CalendarError('MEETING_TYPE_TITLE_EXISTS', 'Название уже используется', {
+        title: 'Название уже используется',
+      });
+    return { title, description };
+  }
+
+  private meetingTypeResult(meetingType: MeetingType) {
+    return {
+      meetingType: { ...meetingType },
+      warnings: this.schedule.days.some((day) =>
+        day.intervals.some(
+          (interval) =>
+            minutes(interval.end) - minutes(interval.start) >= meetingType.durationMinutes,
+        ),
+      )
+        ? []
+        : [
+            {
+              code: 'DURATION_EXCEEDS_WORKING_INTERVALS' as const,
+              message:
+                'Длительность встречи превышает любой рабочий интервал. При текущем расписании запись невозможна',
+            },
+          ],
+    };
   }
 
   listOwnerMeetingTypes() {
