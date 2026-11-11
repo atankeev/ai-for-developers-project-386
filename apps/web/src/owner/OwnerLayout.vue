@@ -14,8 +14,8 @@ async function expired() {
   ready.value = false;
   await router.replace({ path: '/owner/login', query: { returnTo: route.path, expired: '1' } });
 }
-async function checkSession() {
-  ready.value = false;
+async function checkSession(keepVisible = false) {
+  if (!keepVisible) ready.value = false;
   message.value = '';
   try {
     const result = await ownerSession();
@@ -39,7 +39,7 @@ async function logout() {
   }
 }
 function visible() {
-  if (document.visibilityState === 'visible') void checkSession();
+  if (document.visibilityState === 'visible') void checkSession(true);
 }
 onMounted(() => {
   window.addEventListener('owner-session-expired', expired);
@@ -49,13 +49,17 @@ onBeforeUnmount(() => {
   window.removeEventListener('owner-session-expired', expired);
   document.removeEventListener('visibilitychange', visible);
 });
-watch(() => route.path, checkSession, { immediate: true });
+watch(
+  () => route.path,
+  () => checkSession(),
+  { immediate: true },
+);
 </script>
 
 <template>
   <main class="page owner-page">
     <p v-if="message" role="alert">
-      {{ message }} <Button label="Повторить" @click="checkSession" />
+      {{ message }} <Button label="Повторить" @click="checkSession()" />
     </p>
     <template v-if="ready">
       <nav class="owner-nav" aria-label="Кабинет владельца">
