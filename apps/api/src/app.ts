@@ -42,6 +42,16 @@ export function buildApp(
     logController: new LogController({ disableRequestLogging: true }),
     trustProxy: config.trustProxy,
   });
+  let cleanupTimer: ReturnType<typeof setInterval> | undefined;
+  app.addHook('onReady', async () => {
+    cleanupTimer = setInterval(() => {
+      void calendar.cleanup().catch(() => app.log.error('Booking cleanup failed'));
+    }, 60_000);
+    cleanupTimer.unref();
+  });
+  app.addHook('onClose', async () => {
+    clearInterval(cleanupTimer);
+  });
   const attempts = new Map<string, { start: number; count: number }>();
   const unauthenticated = () => ({ code: 'UNAUTHENTICATED', message: 'Требуется вход владельца' });
 

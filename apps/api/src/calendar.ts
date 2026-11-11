@@ -113,17 +113,23 @@ export class Calendar {
     return { booking: guestBooking(booking), confirmationUrl: `/confirmations/${booking.token}` };
   }
   getConfirmation(token: string) {
-    const booking = this.bookings.get(this.confirmationIndex.get(token) ?? '');
-    if (!booking) throw new CalendarError('NOT_FOUND', 'Подтверждение не найдено', undefined, 404);
+    const booking = this.visibleBooking(this.confirmationIndex.get(token) ?? '', this.now());
+    if (!booking) throw new CalendarError('NOT_FOUND', 'Запись не найдена', undefined, 404);
     return guestBooking(booking);
   }
   getOwnerBooking(id: string) {
-    const booking = this.bookings.get(id);
+    const booking = this.visibleBooking(id, this.now());
     if (!booking) throw new CalendarError('NOT_FOUND', 'Запись не найдена', undefined, 404);
     return ownerBooking(booking);
   }
   listOwnerBookings(group: string, cursor?: string) {
-    return bookingPage(this.bookings.values(), group, cursor, this.now());
+    const now = this.now();
+    return bookingPage(
+      [...this.bookings.values()].filter((booking) => !this.expired(booking, now)),
+      group,
+      cursor,
+      now,
+    );
   }
   private readonly meetingTypeTitles = new Map<string, string>();
   readonly meetingTypes = new Map<string, MeetingType>();
@@ -131,9 +137,36 @@ export class Calendar {
   constructor(readonly now: () => number) {}
 
   mutate<T>(operation: (now: number) => T): Promise<T> {
-    const result = this.mutations.then(() => operation(this.now()));
+    const result = this.mutations.then(() => {
+      const now = this.now();
+      this.removeExpiredBookings(now);
+      return operation(now);
+    });
     this.mutations = result.catch(() => undefined);
     return result;
+  }
+
+  cleanup() {
+    return this.mutate(() => undefined);
+  }
+
+  private expired(booking: Booking, now: number) {
+    return now >= Date.parse(booking.endsAt) + 30 * 24 * 60 * 60 * 1000;
+  }
+
+  private visibleBooking(id: string, now: number) {
+    const booking = this.bookings.get(id);
+    return booking && !this.expired(booking, now) ? booking : undefined;
+  }
+
+  private removeExpiredBookings(now: number) {
+    for (const [id, booking] of this.bookings) {
+      if (!this.expired(booking, now)) continue;
+      this.bookings.delete(id);
+      this.confirmationIndex.delete(booking.token);
+    }
+    for (const [attemptId, attempt] of this.successfulAttempts)
+      if (!this.bookings.has(attempt.bookingId)) this.successfulAttempts.delete(attemptId);
   }
 
   createMeetingType(input: CreateMeetingTypeRequest) {
