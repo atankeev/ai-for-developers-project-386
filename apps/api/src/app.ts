@@ -9,6 +9,8 @@ import type {
   LoginRequest,
   CreateMeetingTypeRequest,
   ReplaceWeeklyScheduleRequest,
+  ReplaceScheduleExceptionRequest,
+  DeleteScheduleExceptionRequest,
 } from '@call-calendar/api-contract';
 import { Calendar, CalendarError } from './calendar.js';
 import { readOwnerConfig, verifyPassword } from './auth.js';
@@ -122,6 +124,22 @@ export function buildApp(
   app.register(openapiGlue, {
     specification: fileURLToPath(import.meta.resolve('@call-calendar/api-contract/openapi.json')),
     serviceHandlers: {
+      async getScheduleException(request: FastifyRequest<{ Params: { date: string } }>) {
+        return calendar.getScheduleException(request.params.date);
+      },
+      async replaceScheduleException(
+        request: FastifyRequest<{
+          Params: { date: string };
+          Body: ReplaceScheduleExceptionRequest;
+        }>,
+      ) {
+        return calendar.replaceScheduleException(request.params.date, request.body);
+      },
+      async deleteScheduleException(
+        request: FastifyRequest<{ Params: { date: string }; Body: DeleteScheduleExceptionRequest }>,
+      ) {
+        return calendar.deleteScheduleException(request.params.date, request.body);
+      },
       async getOwnerSchedule() {
         return calendar.getOwnerSchedule();
       },

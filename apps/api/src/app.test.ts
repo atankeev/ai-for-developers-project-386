@@ -2,6 +2,9 @@ import { Writable } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 import { expect, test } from 'vitest';
 import {
+  getScheduleException,
+  replaceScheduleException,
+  deleteScheduleException,
   getOwnerSchedule,
   replaceWeeklySchedule,
   getHealth,
@@ -467,6 +470,7 @@ test('weekly schedule saves all seven days atomically with optimistic concurrenc
     const initial = (await getOwnerSchedule({ client, headers: auth })).data!;
     expect(initial).toEqual({
       version: 1,
+      exceptions: [],
       days: [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, intervals: [] })),
     });
     const days = initial.days.map((day) => ({
@@ -494,7 +498,11 @@ test('weekly schedule saves all seven days atomically with optimistic concurrenc
         })
       ).error?.code,
     ).toBe('VALIDATION_ERROR');
-    expect((await getOwnerSchedule({ client, headers: auth })).data).toEqual({ version: 2, days });
+    expect((await getOwnerSchedule({ client, headers: auth })).data).toEqual({
+      version: 2,
+      days,
+      exceptions: [],
+    });
     expect(
       (await replaceWeeklySchedule({ client, headers: auth, body: { expectedVersion: 2, days } }))
         .data?.version,
@@ -700,6 +708,282 @@ test.each([
     });
     expect(result.error?.code).toBe('VALIDATION_ERROR');
     expect((await getOwnerSchedule({ client, headers: auth })).data).toEqual(initial);
+  } finally {
+    await app.close();
+  }
+});
+
+test('date exceptions replace weekly hours, close and restore a date without resetting its version', async () => {
+  const { app, client } = await server();
+  try {
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    const path = { date: '2026-11-11' };
+    expect((await getScheduleException({ client, headers: auth, path })).data).toEqual({
+      date: path.date,
+      version: 0,
+      intervals: null,
+    });
+    await replaceWeeklySchedule({
+      client,
+      headers: auth,
+      body: {
+        expectedVersion: 1,
+        days: [1, 2, 3, 4, 5, 6, 7].map((day) => ({
+          day,
+          intervals: [{ start: '09:00', end: '18:00' }],
+        })),
+      },
+    });
+    const type = (
+      await createMeetingType({
+        client,
+        headers: auth,
+        body: { title: 'Exception', durationMinutes: 30 },
+      })
+    ).data!.meetingType;
+    const saved = await replaceScheduleException({
+      client,
+      headers: auth,
+      path,
+      body: { expectedVersion: 0, intervals: [{ start: '14:10', end: '15:10' }] },
+    });
+    expect(saved.data).toEqual({
+      date: path.date,
+      version: 1,
+      intervals: [{ start: '14:10', end: '15:10' }],
+    });
+    expect(
+      (await getAvailability({ client, path: { id: type.id } })).data!.days[1]!.slots.map(
+        (s) => s.startsAt,
+      ),
+    ).toEqual(['2026-11-11T11:10:00.000Z', '2026-11-11T11:25:00.000Z', '2026-11-11T11:40:00.000Z']);
+    expect((await getCatalog({ client })).data!.items[0]!.nearestStartsAt).toBe(
+      '2026-11-11T11:10:00.000Z',
+    );
+    expect((await getOwnerSchedule({ client, headers: auth })).data!.exceptions).toEqual([
+      saved.data,
+    ]);
+    expect(
+      (
+        await replaceScheduleException({
+          client,
+          headers: auth,
+          path,
+          body: { expectedVersion: 1, intervals: [] },
+        })
+      ).data!.version,
+    ).toBe(2);
+    expect((await getAvailability({ client, path: { id: type.id } })).data!.days[1]!.slots).toEqual(
+      [],
+    );
+    expect(
+      (await deleteScheduleException({ client, headers: auth, path, body: { expectedVersion: 2 } }))
+        .data,
+    ).toEqual({ date: path.date, version: 3, intervals: null });
+    expect(
+      (await getAvailability({ client, path: { id: type.id } })).data!.days[1]!.slots[0]!.startsAt,
+    ).toBe('2026-11-11T06:00:00.000Z');
+    expect(
+      (
+        await replaceScheduleException({
+          client,
+          headers: auth,
+          path,
+          body: { expectedVersion: 0, intervals: [] },
+        })
+      ).error?.code,
+    ).toBe('VERSION_CONFLICT');
+  } finally {
+    await app.close();
+  }
+});
+
+test('exception dates, hours and versions validate without changes; access is private', async () => {
+  const { app, client } = await server();
+  try {
+    const path = { date: '2026-11-11' };
+    expect((await getScheduleException({ client, path })).response!.status).toBe(401);
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    expect(
+      (
+        await replaceScheduleException({
+          client,
+          path,
+          headers: { Cookie: cookie(login.response) },
+          body: { expectedVersion: 0, intervals: [] },
+        })
+      ).response!.status,
+    ).toBe(403);
+    for (const date of ['2026-02-30', '2026-02-29', '2026-13-01', '2026-1-01', '0000-01-01']) {
+      for (const result of [
+        await getScheduleException({ client, headers: auth, path: { date } }),
+        await replaceScheduleException({
+          client,
+          headers: auth,
+          path: { date },
+          body: { expectedVersion: 0, intervals: [] },
+        }),
+        await deleteScheduleException({
+          client,
+          headers: auth,
+          path: { date },
+          body: { expectedVersion: 0 },
+        }),
+      ])
+        expect(result.error?.code).toBe('VALIDATION_ERROR');
+    }
+    for (const intervals of [
+      [{ start: '24:00', end: '24:00' }],
+      [
+        { start: '09:00', end: '10:00' },
+        { start: '09:30', end: '11:00' },
+      ],
+    ])
+      expect(
+        (
+          await replaceScheduleException({
+            client,
+            headers: auth,
+            path,
+            body: { expectedVersion: 0, intervals },
+          })
+        ).error?.code,
+      ).toBe('VALIDATION_ERROR');
+    const results = await Promise.all(
+      [1, 2].map(() =>
+        replaceScheduleException({
+          client,
+          headers: auth,
+          path,
+          body: { expectedVersion: 0, intervals: [] },
+        }),
+      ),
+    );
+    expect(results.map((r) => r.response!.status).sort()).toEqual([200, 400]);
+    expect(results.find((r) => r.error)!.error!.code).toBe('VERSION_CONFLICT');
+    expect(
+      (
+        await replaceScheduleException({
+          client,
+          headers: auth,
+          path,
+          body: { expectedVersion: 1, intervals: [] },
+        })
+      ).data!.version,
+    ).toBe(1);
+    expect(
+      (await deleteScheduleException({ client, headers: auth, path, body: { expectedVersion: 0 } }))
+        .error!.code,
+    ).toBe('VERSION_CONFLICT');
+    expect(
+      (await deleteScheduleException({ client, headers: auth, path, body: { expectedVersion: 1 } }))
+        .data!.version,
+    ).toBe(2);
+    expect(
+      (await deleteScheduleException({ client, headers: auth, path, body: { expectedVersion: 2 } }))
+        .data!.version,
+    ).toBe(2);
+    expect(
+      (
+        await replaceScheduleException({
+          client,
+          headers: auth,
+          path,
+          body: { expectedVersion: 2, intervals: [] },
+        })
+      ).data!.version,
+    ).toBe(3);
+    expect(
+      (
+        await replaceScheduleException({
+          client,
+          headers: auth,
+          path,
+          body: { expectedVersion: 1, intervals: [] },
+        })
+      ).error!.code,
+    ).toBe('VERSION_CONFLICT');
+    expect(
+      (await getScheduleException({ client, headers: auth, path })).response!.headers.get(
+        'cache-control',
+      ),
+    ).toBe('no-store');
+    expect(
+      (await getScheduleException({ client, headers: auth, path: { date: '2028-02-29' } })).data!
+        .intervals,
+    ).toBeNull();
+  } finally {
+    await app.close();
+  }
+});
+
+test('duration warnings consider today and future exception intervals, excluding past and closed dates', async () => {
+  const { app, client } = await server();
+  try {
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    await replaceScheduleException({
+      client,
+      headers: auth,
+      path: { date: '2026-11-08' },
+      body: { expectedVersion: 0, intervals: [{ start: '00:00', end: '24:00' }] },
+    });
+    expect(
+      (
+        await createMeetingType({
+          client,
+          headers: auth,
+          body: { title: 'Past ignored', durationMinutes: 60 },
+        })
+      ).data!.warnings,
+    ).toHaveLength(1);
+    await replaceScheduleException({
+      client,
+      headers: auth,
+      path: { date: '2026-11-09' },
+      body: { expectedVersion: 0, intervals: [{ start: '09:00', end: '10:00' }] },
+    });
+    expect(
+      (
+        await createMeetingType({
+          client,
+          headers: auth,
+          body: { title: 'Today included', durationMinutes: 60 },
+        })
+      ).data!.warnings,
+    ).toEqual([]);
+    await replaceScheduleException({
+      client,
+      headers: auth,
+      path: { date: '2030-01-01' },
+      body: { expectedVersion: 0, intervals: [{ start: '09:00', end: '11:00' }] },
+    });
+    expect(
+      (
+        await createMeetingType({
+          client,
+          headers: auth,
+          body: { title: 'Future outside window', durationMinutes: 120 },
+        })
+      ).data!.warnings,
+    ).toEqual([]);
+    await replaceScheduleException({
+      client,
+      headers: auth,
+      path: { date: '2030-01-01' },
+      body: { expectedVersion: 1, intervals: [] },
+    });
+    expect(
+      (
+        await createMeetingType({
+          client,
+          headers: auth,
+          body: { title: 'Closed ignored', durationMinutes: 120 },
+        })
+      ).data!.warnings,
+    ).toHaveLength(1);
   } finally {
     await app.close();
   }

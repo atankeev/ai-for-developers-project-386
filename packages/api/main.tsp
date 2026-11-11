@@ -66,9 +66,19 @@ op getAvailability(@path id: string): Availability | NotFound;
 
 model WorkingInterval { start: string; end: string; }
 model WeekdaySchedule { day: int32; intervals: WorkingInterval[]; }
-model WeeklySchedule { version: int32; days: WeekdaySchedule[]; }
+model ScheduleException { date: string; version: int32; intervals: WorkingInterval[] | null; }
+model WeeklySchedule { version: int32; days: WeekdaySchedule[]; exceptions: ScheduleException[]; }
 model ReplaceWeeklyScheduleRequest { expectedVersion: int32; days: WeekdaySchedule[]; }
 @route("/api/owner/schedule") @get @operationId("getOwnerSchedule")
 op getOwnerSchedule(): WeeklySchedule | Unauthenticated;
 @route("/api/owner/schedule") @put @operationId("replaceWeeklySchedule")
 op replaceWeeklySchedule(@body body: ReplaceWeeklyScheduleRequest): WeeklySchedule | BadRequest | Unauthenticated | Forbidden;
+
+model ReplaceScheduleExceptionRequest { expectedVersion: int32; intervals: WorkingInterval[]; }
+model DeleteScheduleExceptionRequest { expectedVersion: int32; }
+@route("/api/owner/schedule/exceptions/{date}") @get @operationId("getScheduleException")
+op getScheduleException(@path date: string): ScheduleException | BadRequest | Unauthenticated;
+@route("/api/owner/schedule/exceptions/{date}") @put @operationId("replaceScheduleException")
+op replaceScheduleException(@path date: string, @body body: ReplaceScheduleExceptionRequest): ScheduleException | BadRequest | Unauthenticated | Forbidden;
+@route("/api/owner/schedule/exceptions/{date}") @delete @operationId("deleteScheduleException")
+op deleteScheduleException(@path date: string, @body body: DeleteScheduleExceptionRequest): ScheduleException | BadRequest | Unauthenticated | Forbidden;

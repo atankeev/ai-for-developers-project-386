@@ -43,6 +43,10 @@ export type CreateMeetingTypeRequest = {
     durationMinutes: number;
 };
 
+export type DeleteScheduleExceptionRequest = {
+    expectedVersion: number;
+};
+
 export type HealthResponse = {
     status: 'ok';
 };
@@ -77,9 +81,20 @@ export type PublicMeetingType = {
     durationMinutes: number;
 };
 
+export type ReplaceScheduleExceptionRequest = {
+    expectedVersion: number;
+    intervals: Array<WorkingInterval>;
+};
+
 export type ReplaceWeeklyScheduleRequest = {
     expectedVersion: number;
     days: Array<WeekdaySchedule>;
+};
+
+export type ScheduleException = {
+    date: string;
+    version: number;
+    intervals: Array<WorkingInterval> | null;
 };
 
 export type Slot = {
@@ -100,6 +115,7 @@ export type WeekdaySchedule = {
 export type WeeklySchedule = {
     version: number;
     days: Array<WeekdaySchedule>;
+    exceptions: Array<ScheduleException>;
 };
 
 export type WorkingInterval = {
@@ -347,6 +363,107 @@ export type ReplaceWeeklyScheduleResponses = {
 };
 
 export type ReplaceWeeklyScheduleResponse = ReplaceWeeklyScheduleResponses[keyof ReplaceWeeklyScheduleResponses];
+
+export type DeleteScheduleExceptionData = {
+    body: DeleteScheduleExceptionRequest;
+    path: {
+        date: string;
+    };
+    query?: never;
+    url: '/api/owner/schedule/exceptions/{date}';
+};
+
+export type DeleteScheduleExceptionErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type DeleteScheduleExceptionError = DeleteScheduleExceptionErrors[keyof DeleteScheduleExceptionErrors];
+
+export type DeleteScheduleExceptionResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: ScheduleException;
+};
+
+export type DeleteScheduleExceptionResponse = DeleteScheduleExceptionResponses[keyof DeleteScheduleExceptionResponses];
+
+export type GetScheduleExceptionData = {
+    body?: never;
+    path: {
+        date: string;
+    };
+    query?: never;
+    url: '/api/owner/schedule/exceptions/{date}';
+};
+
+export type GetScheduleExceptionErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type GetScheduleExceptionError = GetScheduleExceptionErrors[keyof GetScheduleExceptionErrors];
+
+export type GetScheduleExceptionResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: ScheduleException;
+};
+
+export type GetScheduleExceptionResponse = GetScheduleExceptionResponses[keyof GetScheduleExceptionResponses];
+
+export type ReplaceScheduleExceptionData = {
+    body: ReplaceScheduleExceptionRequest;
+    path: {
+        date: string;
+    };
+    query?: never;
+    url: '/api/owner/schedule/exceptions/{date}';
+};
+
+export type ReplaceScheduleExceptionErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type ReplaceScheduleExceptionError = ReplaceScheduleExceptionErrors[keyof ReplaceScheduleExceptionErrors];
+
+export type ReplaceScheduleExceptionResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: ScheduleException;
+};
+
+export type ReplaceScheduleExceptionResponse = ReplaceScheduleExceptionResponses[keyof ReplaceScheduleExceptionResponses];
 
 export type OwnerSessionData = {
     body?: never;
