@@ -229,3 +229,11 @@ h2 {
   max-width: 800px;
   margin: 0 auto;
 }
+
+.recovery-notice {
+  width: min(100% - 2rem, 72rem);
+  margin: 1rem auto;
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.75rem;
+}
