@@ -106,3 +106,6 @@ op getConfirmation(@path token: string): GuestBooking | NotFound;
 op listOwnerBookings(@query group: "upcoming" | "past" | "cancelled", @query cursor?: string): OwnerBookings | BadRequest | Unauthenticated;
 @route("/api/owner/bookings/{id}") @get @operationId("getOwnerBooking")
 op getOwnerBooking(@path id: string): OwnerBooking | NotFound | Unauthenticated;
+
+@route("/api/owner/bookings/{id}/cancel") @post @operationId("cancelBooking")
+op cancelBooking(@path id: string): OwnerBooking | BadRequest | NotFound | Unauthenticated | Forbidden;
