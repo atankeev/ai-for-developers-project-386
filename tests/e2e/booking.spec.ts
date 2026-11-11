@@ -271,6 +271,9 @@ for (const lostAfterSuccess of [true, false]) {
     await expect(
       page.getByRole('button', { name: 'Подтвердить запись', exact: true }),
     ).toBeDisabled();
+    await page.reload();
+    await expect(page.getByText(/Результат отправки неизвестен/)).toBeVisible();
+    await expect(page.getByLabel('Имя', { exact: true })).toHaveValue('Алиса');
     await page.getByRole('button', { name: 'Повторить ту же попытку', exact: true }).click();
     await expect(page).toHaveURL(/\/confirmations\//);
     await page.goto('/owner/bookings');

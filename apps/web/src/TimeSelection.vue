@@ -3,8 +3,7 @@ import { computed, ref, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
-import { createBooking } from '@call-calendar/api-contract';
-import { bookingState as state, clearBookingDraft } from './booking-state.js';
+import { bookingState as state, clearBookingDraft, sendBookingAttempt } from './booking-state.js';
 import Button from 'primevue/button';
 import type { Availability } from '@call-calendar/api-contract';
 const props = defineProps<{ availability: Availability }>();
@@ -14,58 +13,42 @@ const errors = ref<Record<string, string>>({});
 const message = ref('');
 const form = ref<HTMLFormElement>();
 const locked = computed(() => state.sending || !!state.pending);
-async function submit(retry = false) {
-  if (state.sending || (!retry && state.pending)) return;
-  if (!retry) {
-    errors.value = {};
-    message.value = '';
-    const name = state.guestName.trim(),
-      email = state.guestEmail.trim();
-    if (![...name].length || [...name].length > 100)
-      errors.value.guestName = 'Введите имя от 1 до 100 символов';
-    if ([...email].length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      errors.value.guestEmail = 'Введите корректный email';
-    if ([...state.comment.replace(/\r\n?/g, '\n')].length > 2000)
-      errors.value.comment = 'Не более 2000 символов';
-    if (Object.keys(errors.value).length) {
-      await focusError();
-      return;
-    }
-    if (!selectedTime.value) {
-      message.value = 'Выберите время встречи';
-      return;
-    }
-    state.pending = {
-      attemptId: crypto.randomUUID(),
-      meetingTypeId: props.availability.meetingType.id,
-      startsAt: selectedTime.value,
-      guestName: state.guestName,
-      guestEmail: state.guestEmail,
-      comment: state.comment,
-    };
+async function submit() {
+  if (state.sending || state.pending) return;
+  errors.value = {};
+  message.value = '';
+  const name = state.guestName.trim(),
+    email = state.guestEmail.trim();
+  if (![...name].length || [...name].length > 100)
+    errors.value.guestName = 'Введите имя от 1 до 100 символов';
+  if ([...email].length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    errors.value.guestEmail = 'Введите корректный email';
+  if ([...state.comment.replace(/\r\n?/g, '\n')].length > 2000)
+    errors.value.comment = 'Не более 2000 символов';
+  if (Object.keys(errors.value).length) {
+    await focusError();
+    return;
   }
-  if (!state.pending) return;
-  state.sending = true;
-  state.unknown = false;
-  try {
-    const result = await createBooking({ body: { ...state.pending } });
-    if (result.data) {
-      state.pending = undefined;
-      clearBookingDraft();
-      selectedTime.value = '';
-      await router.push(result.data.confirmationUrl);
-    } else if (result.response && result.response.status < 500) {
-      state.pending = undefined;
-      errors.value = result.error?.fieldErrors ?? {};
-      message.value = result.error?.message ?? 'Не удалось создать запись';
-      selectedTime.value = '';
-      if (Object.keys(errors.value).length) await focusError();
-      else emit('refresh');
-    } else state.unknown = true;
-  } catch {
-    state.unknown = true;
-  } finally {
-    state.sending = false;
+  if (!selectedTime.value) {
+    message.value = 'Выберите время встречи';
+    return;
+  }
+  const result = await sendBookingAttempt({
+    attemptId: crypto.randomUUID(),
+    meetingTypeId: props.availability.meetingType.id,
+    startsAt: selectedTime.value,
+    guestName: state.guestName,
+    guestEmail: state.guestEmail,
+    comment: state.comment,
+  });
+  if (result?.data) {
+    selectedTime.value = '';
+    await router.push(result.data.confirmationUrl);
+  } else if (result?.response && result.response.status < 500) {
+    errors.value = result.error?.fieldErrors ?? {};
+    selectedTime.value = '';
+    if (Object.keys(errors.value).length) await focusError();
+    else emit('refresh');
   }
 }
 async function focusError() {
@@ -227,11 +210,6 @@ function move(event: KeyboardEvent, index: number) {
         />
         <p v-if="errors.comment" id="guest-comment-error" role="alert">{{ errors.comment }}</p>
         <p v-if="state.sending" role="status">Отправляем запись…</p>
-        <div v-if="state.unknown" role="alert">
-          Результат отправки неизвестен. Новая запись заблокирована. Повтор безопасно проверит ту же
-          попытку.
-          <Button label="Повторить ту же попытку" type="button" @click="submit(true)" />
-        </div>
         <Button label="Подтвердить запись" type="submit" :disabled="locked" />
         <Button
           label="Очистить черновик"

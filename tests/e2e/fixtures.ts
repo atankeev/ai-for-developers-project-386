@@ -24,7 +24,7 @@ export const test = base.extend<{
     });
   },
   api: [
-    async ({ page, owner, bookingFault, serverClock }, use) => {
+    async ({ page, context, owner, bookingFault, serverClock }, use) => {
       const config = readOwnerConfig({
         OWNER_LOGIN: owner.login,
         OWNER_PASSWORD_HASH: hashPassword(owner.password),
@@ -35,7 +35,7 @@ export const test = base.extend<{
       const app = buildApp({ config, now: () => serverClock.now });
       const baseUrl = await app.listen({ host: '127.0.0.1', port: 0 });
       // Transport routing only: each browser test owns a real isolated HTTP API process state.
-      await page.route('**/api/**', async (route) => {
+      await context.route('**/api/**', async (route) => {
         const incoming = new URL(route.request().url());
         if (incoming.pathname === '/api/bookings' && bookingFault.dropBefore) {
           bookingFault.dropBefore = false;
