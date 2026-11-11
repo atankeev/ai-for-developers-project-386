@@ -12,7 +12,11 @@
       "types": "./dist/sdk/client/index.d.ts",
       "default": "./dist/sdk/client/index.js"
     },
-    "./openapi.json": "./generated/openapi.json"
+    "./openapi.json": "./generated/openapi.json",
+    "./sdk-client": {
+      "types": "./dist/sdk/client.gen.d.ts",
+      "default": "./dist/sdk/client.gen.js"
+    }
   },
   "scripts": {
     "generate": "node ../../scripts/generate.mjs",

@@ -13,7 +13,8 @@
     "@call-calendar/api-contract": "0.0.0",
     "@primeuix/themes": "3.1.0",
     "primevue": "5.0.4",
-    "vue": "3.5.44"
+    "vue": "3.5.44",
+    "vue-router": "5.5.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "6.0.10",

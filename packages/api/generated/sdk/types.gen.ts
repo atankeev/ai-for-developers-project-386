@@ -4,8 +4,29 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type ApiError = {
+    code: string;
+    message: string;
+    fieldErrors?: {
+        [key: string]: string;
+    };
+};
+
+export type Authenticated = {
+    authenticated: true;
+};
+
 export type HealthResponse = {
     status: 'ok';
+};
+
+export type LoggedOut = {
+    authenticated: false;
+};
+
+export type LoginRequest = {
+    login: string;
+    password: string;
 };
 
 export type GetHealthData = {
@@ -23,3 +44,94 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type OwnerLoginData = {
+    body: LoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/owner/login';
+};
+
+export type OwnerLoginErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+    /**
+     * Client error
+     */
+    429: ApiError;
+};
+
+export type OwnerLoginError = OwnerLoginErrors[keyof OwnerLoginErrors];
+
+export type OwnerLoginResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Authenticated;
+};
+
+export type OwnerLoginResponse = OwnerLoginResponses[keyof OwnerLoginResponses];
+
+export type OwnerLogoutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/owner/logout';
+};
+
+export type OwnerLogoutErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type OwnerLogoutError = OwnerLogoutErrors[keyof OwnerLogoutErrors];
+
+export type OwnerLogoutResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: LoggedOut;
+};
+
+export type OwnerLogoutResponse = OwnerLogoutResponses[keyof OwnerLogoutResponses];
+
+export type OwnerSessionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/owner/session';
+};
+
+export type OwnerSessionErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type OwnerSessionError = OwnerSessionErrors[keyof OwnerSessionErrors];
+
+export type OwnerSessionResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Authenticated;
+};
+
+export type OwnerSessionResponse = OwnerSessionResponses[keyof OwnerSessionResponses];

@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { GetHealthData, GetHealthResponses } from './types.gen.js';
+import type { GetHealthData, GetHealthResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -19,3 +19,16 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({ url: '/api/health', ...options });
+
+export const ownerLogin = <ThrowOnError extends boolean = false>(options: Options<OwnerLoginData, ThrowOnError>): RequestResult<OwnerLoginResponses, OwnerLoginErrors, ThrowOnError> => (options.client ?? client).post<OwnerLoginResponses, OwnerLoginErrors, ThrowOnError>({
+    url: '/api/owner/login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const ownerLogout = <ThrowOnError extends boolean = false>(options?: Options<OwnerLogoutData, ThrowOnError>): RequestResult<OwnerLogoutResponses, OwnerLogoutErrors, ThrowOnError> => (options?.client ?? client).post<OwnerLogoutResponses, OwnerLogoutErrors, ThrowOnError>({ url: '/api/owner/logout', ...options });
+
+export const ownerSession = <ThrowOnError extends boolean = false>(options?: Options<OwnerSessionData, ThrowOnError>): RequestResult<OwnerSessionResponses, OwnerSessionErrors, ThrowOnError> => (options?.client ?? client).get<OwnerSessionResponses, OwnerSessionErrors, ThrowOnError>({ url: '/api/owner/session', ...options });
