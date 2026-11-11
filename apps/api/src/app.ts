@@ -8,6 +8,7 @@ import type {
   HealthResponse,
   LoginRequest,
   CreateMeetingTypeRequest,
+  ReplaceWeeklyScheduleRequest,
 } from '@call-calendar/api-contract';
 import { Calendar, CalendarError } from './calendar.js';
 import { readOwnerConfig, verifyPassword } from './auth.js';
@@ -121,6 +122,12 @@ export function buildApp(
   app.register(openapiGlue, {
     specification: fileURLToPath(import.meta.resolve('@call-calendar/api-contract/openapi.json')),
     serviceHandlers: {
+      async getOwnerSchedule() {
+        return calendar.getOwnerSchedule();
+      },
+      async replaceWeeklySchedule(request: FastifyRequest<{ Body: ReplaceWeeklyScheduleRequest }>) {
+        return calendar.replaceWeeklySchedule(request.body);
+      },
       async createMeetingType(request: FastifyRequest<{ Body: CreateMeetingTypeRequest }>) {
         return calendar.createMeetingType(request.body);
       },

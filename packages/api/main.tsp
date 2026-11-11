@@ -63,3 +63,12 @@ op createMeetingType(@body body: CreateMeetingTypeRequest): MeetingTypeResult | 
 op getCatalog(): Catalog;
 @route("/api/meeting-types/{id}/availability") @get @operationId("getAvailability")
 op getAvailability(@path id: string): Availability | NotFound;
+
+model WorkingInterval { start: string; end: string; }
+model WeekdaySchedule { day: int32; intervals: WorkingInterval[]; }
+model WeeklySchedule { version: int32; days: WeekdaySchedule[]; }
+model ReplaceWeeklyScheduleRequest { expectedVersion: int32; days: WeekdaySchedule[]; }
+@route("/api/owner/schedule") @get @operationId("getOwnerSchedule")
+op getOwnerSchedule(): WeeklySchedule | Unauthenticated;
+@route("/api/owner/schedule") @put @operationId("replaceWeeklySchedule")
+op replaceWeeklySchedule(@body body: ReplaceWeeklyScheduleRequest): WeeklySchedule | BadRequest | Unauthenticated | Forbidden;

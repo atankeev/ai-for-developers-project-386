@@ -77,6 +77,11 @@ export type PublicMeetingType = {
     durationMinutes: number;
 };
 
+export type ReplaceWeeklyScheduleRequest = {
+    expectedVersion: number;
+    days: Array<WeekdaySchedule>;
+};
+
 export type Slot = {
     startsAt: string;
     endsAt: string;
@@ -85,6 +90,21 @@ export type Slot = {
 export type Warning = {
     code: 'DURATION_EXCEEDS_WORKING_INTERVALS';
     message: string;
+};
+
+export type WeekdaySchedule = {
+    day: number;
+    intervals: Array<WorkingInterval>;
+};
+
+export type WeeklySchedule = {
+    version: number;
+    days: Array<WeekdaySchedule>;
+};
+
+export type WorkingInterval = {
+    start: string;
+    end: string;
 };
 
 export type GetHealthData = {
@@ -269,6 +289,64 @@ export type CreateMeetingTypeResponses = {
 };
 
 export type CreateMeetingTypeResponse = CreateMeetingTypeResponses[keyof CreateMeetingTypeResponses];
+
+export type GetOwnerScheduleData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/owner/schedule';
+};
+
+export type GetOwnerScheduleErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type GetOwnerScheduleError = GetOwnerScheduleErrors[keyof GetOwnerScheduleErrors];
+
+export type GetOwnerScheduleResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: WeeklySchedule;
+};
+
+export type GetOwnerScheduleResponse = GetOwnerScheduleResponses[keyof GetOwnerScheduleResponses];
+
+export type ReplaceWeeklyScheduleData = {
+    body: ReplaceWeeklyScheduleRequest;
+    path?: never;
+    query?: never;
+    url: '/api/owner/schedule';
+};
+
+export type ReplaceWeeklyScheduleErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type ReplaceWeeklyScheduleError = ReplaceWeeklyScheduleErrors[keyof ReplaceWeeklyScheduleErrors];
+
+export type ReplaceWeeklyScheduleResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: WeeklySchedule;
+};
+
+export type ReplaceWeeklyScheduleResponse = ReplaceWeeklyScheduleResponses[keyof ReplaceWeeklyScheduleResponses];
 
 export type OwnerSessionData = {
     body?: never;

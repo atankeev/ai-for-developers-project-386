@@ -142,3 +142,45 @@ test('загрузка, пустой каталог, сбой и отсутст�
   await page.getByRole('button', { name: 'Повторить' }).click();
   await expect(page.getByText('Тип встречи не найден')).toBeVisible();
 });
+
+test('owner sets weekly hours and guest selects a date and time with the keyboard', async ({
+  page,
+  owner,
+}) => {
+  await page.goto('/owner/login');
+  await page.getByLabel('Логин', { exact: true }).fill(owner.login);
+  await page.getByLabel('Пароль', { exact: true }).fill(owner.password);
+  await page.getByRole('button', { name: 'Войти', exact: true }).click();
+  await page.getByRole('link', { name: 'Расписание', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Расписание', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Добавить интервал: Понедельник', exact: true }).click();
+  await page.getByLabel('Понедельник: начало 1', { exact: true }).fill('09:10');
+  await page.getByLabel('Понедельник: конец 1', { exact: true }).fill('10:10');
+  await page.getByRole('button', { name: 'Сохранить неделю', exact: true }).click();
+  await expect(page.getByRole('status')).toHaveText('Расписание сохранено');
+  await page.getByRole('link', { name: 'Типы встреч', exact: true }).click();
+  await page.getByLabel('Название', { exact: true }).fill('Выбор времени');
+  await page.getByRole('button', { name: 'Создать тип встречи', exact: true }).click();
+  await page.goto('/book');
+  await expect(page.getByText(/Ближайшее время:/)).toBeVisible();
+  await page.getByRole('link', { name: 'Выбрать встречу', exact: true }).click();
+  await expect(page.getByText('Europe/Moscow', { exact: true })).toBeVisible();
+  const dates = page.getByRole('button', { name: /Выбрать дату/ });
+  await expect(dates).toHaveCount(14);
+  await expect(dates.filter({ has: page.locator('[disabled]') })).toHaveCount(0);
+  const activeDate = page.locator('.calendar-dates button[aria-pressed="true"]');
+  await expect(activeDate).toHaveCount(1);
+  await expect(page.locator('.time-buttons button[aria-pressed="true"]')).toHaveCount(0);
+  await activeDate.focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.calendar-dates button:focus')).toHaveCSS('outline-style', 'solid');
+  const time = page.getByRole('button', { name: '09:10', exact: true });
+  await time.focus();
+  await page.keyboard.press('Enter');
+  await expect(time).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText(/Выбрано:/)).toContainText('09:10');
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true);
+});

@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetHealthData, GetHealthResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses } from './types.gen.js';
+import type { CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetHealthData, GetHealthResponses, GetOwnerScheduleData, GetOwnerScheduleErrors, GetOwnerScheduleResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses, ReplaceWeeklyScheduleData, ReplaceWeeklyScheduleErrors, ReplaceWeeklyScheduleResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -39,6 +39,17 @@ export const listOwnerMeetingTypes = <ThrowOnError extends boolean = false>(opti
 
 export const createMeetingType = <ThrowOnError extends boolean = false>(options: Options<CreateMeetingTypeData, ThrowOnError>): RequestResult<CreateMeetingTypeResponses, CreateMeetingTypeErrors, ThrowOnError> => (options.client ?? client).post<CreateMeetingTypeResponses, CreateMeetingTypeErrors, ThrowOnError>({
     url: '/api/owner/meeting-types',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getOwnerSchedule = <ThrowOnError extends boolean = false>(options?: Options<GetOwnerScheduleData, ThrowOnError>): RequestResult<GetOwnerScheduleResponses, GetOwnerScheduleErrors, ThrowOnError> => (options?.client ?? client).get<GetOwnerScheduleResponses, GetOwnerScheduleErrors, ThrowOnError>({ url: '/api/owner/schedule', ...options });
+
+export const replaceWeeklySchedule = <ThrowOnError extends boolean = false>(options: Options<ReplaceWeeklyScheduleData, ThrowOnError>): RequestResult<ReplaceWeeklyScheduleResponses, ReplaceWeeklyScheduleErrors, ThrowOnError> => (options.client ?? client).put<ReplaceWeeklyScheduleResponses, ReplaceWeeklyScheduleErrors, ThrowOnError>({
+    url: '/api/owner/schedule',
     ...options,
     headers: {
         'Content-Type': 'application/json',

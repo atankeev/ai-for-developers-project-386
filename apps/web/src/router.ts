@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import CatalogPage from './CatalogPage.vue';
+import OwnerSchedule from './owner/OwnerSchedule.vue';
 import MeetingTypes from './owner/MeetingTypes.vue';
 import GuestPage from './GuestPage.vue';
 import OwnerLayout from './owner/OwnerLayout.vue';
@@ -20,7 +21,7 @@ export const router = createRouter({
         { path: '', redirect: '/owner/bookings' },
         { path: 'bookings', component: OwnerSection, meta: { title: 'Встречи' } },
         { path: 'meeting-types', component: MeetingTypes, meta: { title: 'Типы встреч' } },
-        { path: 'schedule', component: OwnerSection, meta: { title: 'Расписание' } },
+        { path: 'schedule', component: OwnerSchedule, meta: { title: 'Расписание' } },
       ],
     },
   ],

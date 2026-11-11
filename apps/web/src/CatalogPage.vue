@@ -9,11 +9,14 @@ import {
   type PublicMeetingType,
 } from '@call-calendar/api-contract';
 import './owner/api.js';
+import TimeSelection from './TimeSelection.vue';
+import type { Availability } from '@call-calendar/api-contract';
 const route = useRoute();
 const loading = ref(true);
 const failed = ref(false);
 const missing = ref(false);
 const items = ref<CatalogItem[]>([]);
+const availability = ref<Availability>();
 const type = ref<PublicMeetingType>();
 let generation = 0;
 async function load() {
@@ -22,14 +25,17 @@ async function load() {
   failed.value = false;
   missing.value = false;
   type.value = undefined;
+  availability.value = undefined;
   document.title = 'Записаться — Календарь звонков';
   try {
     if (typeof route.params.id === 'string') {
       const result = await getAvailability({ path: { id: route.params.id } });
       if (current !== generation) return;
       if (result.response?.status === 404) missing.value = true;
-      else if (result.data) type.value = result.data.meetingType;
-      else throw new Error();
+      else if (result.data) {
+        type.value = result.data.meetingType;
+        availability.value = result.data;
+      } else throw new Error();
     } else {
       const result = await getCatalog();
       if (current !== generation) return;
@@ -61,7 +67,7 @@ watch(() => route.params.id, load, { immediate: true });
     <template v-else-if="type">
       <p class="plain-text">{{ type.description }}</p>
       <p>{{ type.durationMinutes }} минут</p>
-      <p>Нет свободного времени для этой встречи в ближайшие 14 дней</p>
+      <TimeSelection v-if="availability" :availability="availability" />
     </template>
     <template v-else>
       <p v-if="!items.length">Сейчас нет доступных типов встреч</p>
@@ -72,7 +78,7 @@ watch(() => route.params.id, load, { immediate: true });
         <p>
           {{
             item.nearestStartsAt
-              ? `Ближайшее время: ${item.nearestStartsAt}`
+              ? `Ближайшее время: ${new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(item.nearestStartsAt))} (Москва)`
               : 'Нет свободного времени в ближайшие 14 дней'
           }}
         </p>

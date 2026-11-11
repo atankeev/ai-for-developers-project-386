@@ -18,7 +18,7 @@ export const test = base.extend<{ owner: { login: string; password: string }; ap
         OWNER_COOKIE_SECRET: randomBytes(48).toString('hex'),
         OWNER_ALLOWED_ORIGIN: 'http://127.0.0.1:4174',
       });
-      const app = buildApp({ config });
+      const app = buildApp({ config, now: () => Date.parse('2026-11-09T06:00:00Z') });
       const baseUrl = await app.listen({ host: '127.0.0.1', port: 0 });
       // Transport routing only: each browser test owns a real isolated HTTP API process state.
       await page.route('**/api/**', async (route) => {

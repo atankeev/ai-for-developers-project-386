@@ -277,6 +277,90 @@
         }
       }
     },
+    "/api/owner/schedule": {
+      "get": {
+        "operationId": "getOwnerSchedule",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklySchedule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceWeeklySchedule",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklySchedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceWeeklyScheduleRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/owner/session": {
       "get": {
         "operationId": "ownerSession",
@@ -564,6 +648,25 @@
           }
         }
       },
+      "ReplaceWeeklyScheduleRequest": {
+        "type": "object",
+        "required": [
+          "expectedVersion",
+          "days"
+        ],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeekdaySchedule"
+            }
+          }
+        }
+      },
       "Slot": {
         "type": "object",
         "required": [
@@ -593,6 +696,59 @@
             ]
           },
           "message": {
+            "type": "string"
+          }
+        }
+      },
+      "WeekdaySchedule": {
+        "type": "object",
+        "required": [
+          "day",
+          "intervals"
+        ],
+        "properties": {
+          "day": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "intervals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingInterval"
+            }
+          }
+        }
+      },
+      "WeeklySchedule": {
+        "type": "object",
+        "required": [
+          "version",
+          "days"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeekdaySchedule"
+            }
+          }
+        }
+      },
+      "WorkingInterval": {
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "properties": {
+          "start": {
+            "type": "string"
+          },
+          "end": {
             "type": "string"
           }
         }

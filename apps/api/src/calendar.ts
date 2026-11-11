@@ -3,7 +3,11 @@ import type {
   CreateMeetingTypeRequest,
   MeetingType,
   PublicMeetingType,
+  WeeklySchedule,
+  ReplaceWeeklyScheduleRequest,
 } from '@call-calendar/api-contract';
+
+import { validateWeek, bookingDates, slotsForDate, minutes } from './schedule.js';
 
 export class CalendarError extends Error {
   constructor(
@@ -18,6 +22,26 @@ export class CalendarError extends Error {
 
 /** One instance per app. All domain mutations share this queue; callbacks stay synchronous. */
 export class Calendar {
+  private schedule: WeeklySchedule = {
+    version: 1,
+    days: [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, intervals: [] })),
+  };
+  getOwnerSchedule() {
+    return structuredClone(this.schedule);
+  }
+  replaceWeeklySchedule(input: ReplaceWeeklyScheduleRequest) {
+    return this.mutate(() => {
+      const days = validateWeek(input);
+      if (input.expectedVersion !== this.schedule.version)
+        throw new CalendarError(
+          'VERSION_CONFLICT',
+          'Расписание изменилось. Загрузите актуальные данные',
+        );
+      if (JSON.stringify(days) !== JSON.stringify(this.schedule.days))
+        this.schedule = { version: this.schedule.version + 1, days };
+      return this.getOwnerSchedule();
+    });
+  }
   readonly meetingTypes = new Map<string, MeetingType>();
   private mutations: Promise<unknown> = Promise.resolve();
   constructor(readonly now: () => number) {}
@@ -64,13 +88,19 @@ export class Calendar {
       this.meetingTypes.set(meetingType.id, meetingType);
       return {
         meetingType: { ...meetingType },
-        warnings: [
-          {
-            code: 'DURATION_EXCEEDS_WORKING_INTERVALS' as const,
-            message:
-              'Длительность встречи превышает любой рабочий интервал. При текущем расписании запись невозможна',
-          },
-        ],
+        warnings: this.schedule.days.some((day) =>
+          day.intervals.some(
+            (interval) => minutes(interval.end) - minutes(interval.start) >= input.durationMinutes,
+          ),
+        )
+          ? []
+          : [
+              {
+                code: 'DURATION_EXCEEDS_WORKING_INTERVALS' as const,
+                message:
+                  'Длительность встречи превышает любой рабочий интервал. При текущем расписании запись невозможна',
+              },
+            ],
       };
     });
   }
@@ -79,20 +109,27 @@ export class Calendar {
     return { items: [...this.meetingTypes.values()].map((type) => ({ ...type })) };
   }
   getCatalog() {
+    const now = this.now();
     return {
       items: [...this.meetingTypes.values()]
         .filter((type) => !type.hidden)
-        .map((type) => ({ ...publicType(type), nearestStartsAt: null })),
+        .map((type) => ({
+          ...publicType(type),
+          nearestStartsAt:
+            this.availability(type, now).days.flatMap((day) => day.slots)[0]?.startsAt ?? null,
+        })),
     };
   }
   getAvailability(id: string) {
     const type = this.meetingTypes.get(id);
     if (!type || type.hidden)
       throw new CalendarError('NOT_FOUND', 'Тип встречи не найден', undefined, 404);
-    const today = new Date(this.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const days = Array.from({ length: 14 }, (_, index) => ({
-      date: new Date(Date.parse(today) + (index + 1) * 86400000).toISOString().slice(0, 10),
-      slots: [],
+    return this.availability(type, this.now());
+  }
+  private availability(type: MeetingType, now: number) {
+    const days = bookingDates(now).map((date) => ({
+      date,
+      slots: slotsForDate(date, type.durationMinutes, this.schedule, now),
     }));
     return {
       meetingType: publicType(type),

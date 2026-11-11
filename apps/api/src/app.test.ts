@@ -2,6 +2,8 @@ import { Writable } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 import { expect, test } from 'vitest';
 import {
+  getOwnerSchedule,
+  replaceWeeklySchedule,
   getHealth,
   ownerLogin,
   ownerSession,
@@ -453,5 +455,252 @@ test('private types require session and Origin; app restart loses types and old 
   } finally {
     await first.app.close();
     await second.app.close();
+  }
+});
+
+test('weekly schedule saves all seven days atomically with optimistic concurrency', async () => {
+  const { app, client } = await server();
+  try {
+    expect((await getOwnerSchedule({ client })).response!.status).toBe(401);
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    const initial = (await getOwnerSchedule({ client, headers: auth })).data!;
+    expect(initial).toEqual({
+      version: 1,
+      days: [1, 2, 3, 4, 5, 6, 7].map((day) => ({ day, intervals: [] })),
+    });
+    const days = initial.days.map((day) => ({
+      ...day,
+      intervals: [{ start: '09:10', end: '10:10' }],
+    }));
+    const results = await Promise.all(
+      [1, 2].map(() =>
+        replaceWeeklySchedule({ client, headers: auth, body: { expectedVersion: 1, days } }),
+      ),
+    );
+    expect(results.map((r) => r.response!.status).sort()).toEqual([200, 400]);
+    expect(results.find((r) => r.error)?.error?.code).toBe('VERSION_CONFLICT');
+    const invalid = days.map((day) => ({
+      ...day,
+      intervals:
+        day.day === 2 ? [{ start: '24:00', end: '24:00' }] : [{ start: '12:00', end: '13:00' }],
+    }));
+    expect(
+      (
+        await replaceWeeklySchedule({
+          client,
+          headers: auth,
+          body: { expectedVersion: 2, days: invalid },
+        })
+      ).error?.code,
+    ).toBe('VALIDATION_ERROR');
+    expect((await getOwnerSchedule({ client, headers: auth })).data).toEqual({ version: 2, days });
+    expect(
+      (await replaceWeeklySchedule({ client, headers: auth, body: { expectedVersion: 2, days } }))
+        .data?.version,
+    ).toBe(2);
+  } finally {
+    await app.close();
+  }
+});
+
+test.each([
+  [30, ['06:10', '06:25', '06:40']],
+  [45, ['06:10', '06:25']],
+  [60, ['06:10']],
+  [75, []],
+  [17, ['06:10', '06:25', '06:40']],
+])('availability uses the interval grid for duration %i', async (duration, expected) => {
+  const { app, client } = await server();
+  try {
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    await replaceWeeklySchedule({
+      client,
+      headers: auth,
+      body: {
+        expectedVersion: 1,
+        days: [1, 2, 3, 4, 5, 6, 7].map((day) => ({
+          day,
+          intervals: [{ start: '09:10', end: '10:10' }],
+        })),
+      },
+    });
+    const created = (
+      await createMeetingType({
+        client,
+        headers: auth,
+        body: { title: 'Grid', durationMinutes: duration },
+      })
+    ).data!;
+    expect(created.warnings.length).toBe(duration > 60 ? 1 : 0);
+    const availability = (await getAvailability({ client, path: { id: created.meetingType.id } }))
+      .data!;
+    expect(availability.days).toHaveLength(14);
+    expect(availability.days[0]).toEqual({ date: '2026-11-10', slots: [] });
+    expect(availability.days[1]!.slots.map((slot) => slot.startsAt)).toEqual(
+      expected.map((time) => `2026-11-11T${time}:00.000Z`),
+    );
+    expect(availability.windowEnd).toBe('2026-11-23');
+    expect((await getCatalog({ client })).data!.items[0]!.nearestStartsAt).toBe(
+      expected.length ? `2026-11-11T${expected[0]}:00.000Z` : null,
+    );
+  } finally {
+    await app.close();
+  }
+});
+
+test('breaks, adjacent intervals and midnight keep their boundaries', async () => {
+  const { app, client } = await server();
+  try {
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    const days = [1, 2, 3, 4, 5, 6, 7].map((day) => ({
+      day,
+      intervals: [
+        { start: '13:00', end: '18:00' },
+        { start: '09:00', end: '12:00' },
+      ],
+    }));
+    await replaceWeeklySchedule({ client, headers: auth, body: { expectedVersion: 1, days } });
+    const type = (
+      await createMeetingType({
+        client,
+        headers: auth,
+        body: { title: 'Boundaries', durationMinutes: 60 },
+      })
+    ).data!.meetingType;
+    let slots = (await getAvailability({ client, path: { id: type.id } })).data!.days[1]!.slots;
+    expect(slots.map((slot) => slot.startsAt)).toContain('2026-11-11T08:00:00.000Z');
+    expect(slots.map((slot) => slot.startsAt)).not.toContain('2026-11-11T08:15:00.000Z');
+    expect(slots.at(-1)).toEqual({
+      startsAt: '2026-11-11T14:00:00.000Z',
+      endsAt: '2026-11-11T15:00:00.000Z',
+    });
+    await replaceWeeklySchedule({
+      client,
+      headers: auth,
+      body: {
+        expectedVersion: 2,
+        days: days.map((day) => ({
+          ...day,
+          intervals: [
+            { start: '09:00', end: '09:30' },
+            { start: '09:30', end: '10:00' },
+          ],
+        })),
+      },
+    });
+    expect((await getAvailability({ client, path: { id: type.id } })).data!.days[1]!.slots).toEqual(
+      [],
+    );
+    await replaceWeeklySchedule({
+      client,
+      headers: auth,
+      body: {
+        expectedVersion: 3,
+        days: days.map((day) => ({ ...day, intervals: [{ start: '23:00', end: '24:00' }] })),
+      },
+    });
+    slots = (await getAvailability({ client, path: { id: type.id } })).data!.days[1]!.slots;
+    expect(slots).toEqual([
+      { startsAt: '2026-11-11T20:00:00.000Z', endsAt: '2026-11-11T21:00:00.000Z' },
+    ]);
+    await replaceWeeklySchedule({
+      client,
+      headers: auth,
+      body: {
+        expectedVersion: 4,
+        days: days.map((day) => ({ ...day, intervals: [{ start: '00:00', end: '24:00' }] })),
+      },
+    });
+    const full = (
+      await createMeetingType({
+        client,
+        headers: auth,
+        body: { title: 'Full day', durationMinutes: 1440 },
+      })
+    ).data!;
+    expect(full.warnings).toEqual([]);
+    expect(
+      (await getAvailability({ client, path: { id: full.meetingType.id } })).data!.days[1]!.slots,
+    ).toEqual([{ startsAt: '2026-11-10T21:00:00.000Z', endsAt: '2026-11-11T21:00:00.000Z' }]);
+  } finally {
+    await app.close();
+  }
+});
+
+test('Moscow midnight shifts dates; the exact 24h threshold filters without shifting the grid', async () => {
+  const { app, client, advance } = await server();
+  try {
+    advance(-14 * 3600000 - 59 * 60000 - 59000); // Nov 9 09:00 Moscow
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    await replaceWeeklySchedule({
+      client,
+      headers: auth,
+      body: {
+        expectedVersion: 1,
+        days: [1, 2, 3, 4, 5, 6, 7].map((day) => ({
+          day,
+          intervals: [{ start: '09:10', end: '10:10' }],
+        })),
+      },
+    });
+    const type = (
+      await createMeetingType({
+        client,
+        headers: auth,
+        body: { title: 'Threshold', durationMinutes: 30 },
+      })
+    ).data!.meetingType;
+    advance(10 * 60000);
+    expect(
+      (await getAvailability({ client, path: { id: type.id } })).data!.days[0]!.slots[0]!.startsAt,
+    ).toBe('2026-11-10T06:10:00.000Z');
+    advance(10 * 60000);
+    expect(
+      (await getAvailability({ client, path: { id: type.id } })).data!.days[0]!.slots[0]!.startsAt,
+    ).toBe('2026-11-10T06:25:00.000Z');
+    advance(14 * 3600000 + 40 * 60000 - 1);
+    expect((await getAvailability({ client, path: { id: type.id } })).data!.windowStart).toBe(
+      '2026-11-10',
+    );
+    advance(1);
+    const data = (await getAvailability({ client, path: { id: type.id } })).data!;
+    expect([data.windowStart, data.windowEnd]).toEqual(['2026-11-11', '2026-11-24']);
+  } finally {
+    await app.close();
+  }
+});
+
+test.each([
+  [{ start: '9:00', end: '10:00' }],
+  [{ start: '23:00', end: '24:01' }],
+  [{ start: '10:00', end: '09:00' }],
+  [{ start: '09:00', end: '09:00' }],
+  [{ start: '09:00:00', end: '10:00' }],
+  [
+    { start: '09:00', end: '10:00' },
+    { start: '09:59', end: '11:00' },
+  ],
+])('invalid working intervals do not save: %j', async (...intervals) => {
+  const { app, client } = await server();
+  try {
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    const initial = (await getOwnerSchedule({ client, headers: auth })).data!;
+    const result = await replaceWeeklySchedule({
+      client,
+      headers: auth,
+      body: {
+        expectedVersion: 1,
+        days: initial.days.map((day) => ({ ...day, intervals: day.day === 1 ? intervals : [] })),
+      },
+    });
+    expect(result.error?.code).toBe('VALIDATION_ERROR');
+    expect((await getOwnerSchedule({ client, headers: auth })).data).toEqual(initial);
+  } finally {
+    await app.close();
   }
 });
