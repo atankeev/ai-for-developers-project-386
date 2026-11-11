@@ -2,6 +2,8 @@ import { Writable } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 import { expect, test } from 'vitest';
 import {
+  createBooking,
+  getOwnerBooking,
   getScheduleException,
   replaceScheduleException,
   deleteScheduleException,
@@ -1008,6 +1010,84 @@ test('duration warnings consider today and future exception intervals, excluding
         })
       ).data!.warnings,
     ).toHaveLength(1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('exception changes govern new bookings while existing bookings retain and occupy their interval', async () => {
+  const { app, client } = await server();
+  try {
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const auth = headers(cookie(login.response));
+    const path = { date: '2026-11-11' };
+    await replaceScheduleException({
+      client,
+      headers: auth,
+      path,
+      body: { expectedVersion: 0, intervals: [{ start: '14:10', end: '15:10' }] },
+    });
+    const type = (
+      await createMeetingType({
+        client,
+        headers: auth,
+        body: { title: 'Exception bookings', durationMinutes: 30 },
+      })
+    ).data!.meetingType;
+    const body = {
+      attemptId: crypto.randomUUID(),
+      meetingTypeId: type.id,
+      startsAt: '2026-11-11T11:10:00Z',
+      guestName: 'Guest',
+      guestEmail: 'guest@example.test',
+    };
+    const created = await createBooking({ client, body });
+    expect(created.response!.status).toBe(200);
+    expect(
+      (await getAvailability({ client, path: { id: type.id } })).data!.days[1]!.slots.map(
+        (s) => s.startsAt,
+      ),
+    ).toEqual(['2026-11-11T11:40:00.000Z']);
+    await replaceScheduleException({
+      client,
+      headers: auth,
+      path,
+      body: { expectedVersion: 1, intervals: [] },
+    });
+    expect(
+      (await getOwnerBooking({ client, headers: auth, path: { id: created.data!.booking.id } }))
+        .data,
+    ).toMatchObject({
+      status: 'confirmed',
+      startsAt: '2026-11-11T11:10:00.000Z',
+      endsAt: '2026-11-11T11:40:00.000Z',
+    });
+    expect(
+      (
+        await createBooking({
+          client,
+          body: { ...body, attemptId: crypto.randomUUID(), startsAt: '2026-11-11T11:40:00Z' },
+        })
+      ).error!.code,
+    ).toBe('TIME_UNAVAILABLE');
+    await replaceScheduleException({
+      client,
+      headers: auth,
+      path,
+      body: { expectedVersion: 2, intervals: [{ start: '14:10', end: '15:10' }] },
+    });
+    expect(
+      (await createBooking({ client, body: { ...body, attemptId: crypto.randomUUID() } })).error!
+        .code,
+    ).toBe('SLOT_OCCUPIED');
+    expect(
+      (
+        await createBooking({
+          client,
+          body: { ...body, attemptId: crypto.randomUUID(), startsAt: '2026-11-11T11:25:00Z' },
+        })
+      ).error!.code,
+    ).toBe('SLOT_OCCUPIED');
   } finally {
     await app.close();
   }

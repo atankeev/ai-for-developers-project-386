@@ -29,6 +29,11 @@ export type AvailabilityDay = {
     slots: Array<Slot>;
 };
 
+export type BookingResult = {
+    booking: GuestBooking;
+    confirmationUrl: string;
+};
+
 export type Catalog = {
     items: Array<CatalogItem>;
 };
@@ -37,10 +42,28 @@ export type CatalogItem = PublicMeetingType & {
     nearestStartsAt: string | null;
 };
 
+export type CreateBookingRequest = {
+    attemptId: string;
+    meetingTypeId: string;
+    startsAt: string;
+    guestName: string;
+    guestEmail: string;
+    comment?: string;
+};
+
 export type CreateMeetingTypeRequest = {
     title: string;
     description?: string;
     durationMinutes: number;
+};
+
+export type GuestBooking = {
+    id: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+    timeZone: 'Europe/Moscow';
+    status: 'confirmed' | 'cancelled';
 };
 
 export type HealthResponse = {
@@ -64,6 +87,26 @@ export type MeetingType = PublicMeetingType & {
 export type MeetingTypeResult = {
     meetingType: MeetingType;
     warnings: Array<Warning>;
+};
+
+export type OwnerBooking = {
+    id: string;
+    meetingTypeId: string;
+    title: string;
+    description: string;
+    durationMinutes: number;
+    startsAt: string;
+    endsAt: string;
+    status: 'confirmed' | 'cancelled';
+    cancelledAt: string | null;
+    guestName: string;
+    guestEmail: string;
+    comment: string;
+};
+
+export type OwnerBookings = {
+    items: Array<OwnerBooking>;
+    nextCursor: string | null;
 };
 
 export type OwnerMeetingTypes = {
@@ -118,6 +161,62 @@ export type WorkingInterval = {
     start: string;
     end: string;
 };
+
+export type CreateBookingData = {
+    body: CreateBookingRequest;
+    path?: never;
+    query?: never;
+    url: '/api/bookings';
+};
+
+export type CreateBookingErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type CreateBookingError = CreateBookingErrors[keyof CreateBookingErrors];
+
+export type CreateBookingResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: BookingResult;
+};
+
+export type CreateBookingResponse = CreateBookingResponses[keyof CreateBookingResponses];
+
+export type GetConfirmationData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/api/confirmations/{token}';
+};
+
+export type GetConfirmationErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type GetConfirmationError = GetConfirmationErrors[keyof GetConfirmationErrors];
+
+export type GetConfirmationResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: GuestBooking;
+};
+
+export type GetConfirmationResponse = GetConfirmationResponses[keyof GetConfirmationResponses];
 
 export type GetHealthData = {
     body?: never;
@@ -177,6 +276,69 @@ export type GetAvailabilityResponses = {
 };
 
 export type GetAvailabilityResponse = GetAvailabilityResponses[keyof GetAvailabilityResponses];
+
+export type ListOwnerBookingsData = {
+    body?: never;
+    path?: never;
+    query: {
+        group: 'upcoming' | 'past' | 'cancelled';
+        cursor?: string;
+    };
+    url: '/api/owner/bookings';
+};
+
+export type ListOwnerBookingsErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type ListOwnerBookingsError = ListOwnerBookingsErrors[keyof ListOwnerBookingsErrors];
+
+export type ListOwnerBookingsResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: OwnerBookings;
+};
+
+export type ListOwnerBookingsResponse = ListOwnerBookingsResponses[keyof ListOwnerBookingsResponses];
+
+export type GetOwnerBookingData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/owner/bookings/{id}';
+};
+
+export type GetOwnerBookingErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type GetOwnerBookingError = GetOwnerBookingErrors[keyof GetOwnerBookingErrors];
+
+export type GetOwnerBookingResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: OwnerBooking;
+};
+
+export type GetOwnerBookingResponse = GetOwnerBookingResponses[keyof GetOwnerBookingResponses];
 
 export type OwnerLoginData = {
     body: LoginRequest;

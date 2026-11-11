@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, DeleteScheduleExceptionData, DeleteScheduleExceptionErrors, DeleteScheduleExceptionResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetHealthData, GetHealthResponses, GetOwnerScheduleData, GetOwnerScheduleErrors, GetOwnerScheduleResponses, GetScheduleExceptionData, GetScheduleExceptionErrors, GetScheduleExceptionResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses, ReplaceScheduleExceptionData, ReplaceScheduleExceptionErrors, ReplaceScheduleExceptionResponses, ReplaceWeeklyScheduleData, ReplaceWeeklyScheduleErrors, ReplaceWeeklyScheduleResponses } from './types.gen.js';
+import type { CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, DeleteScheduleExceptionData, DeleteScheduleExceptionErrors, DeleteScheduleExceptionResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetConfirmationData, GetConfirmationErrors, GetConfirmationResponses, GetHealthData, GetHealthResponses, GetOwnerBookingData, GetOwnerBookingErrors, GetOwnerBookingResponses, GetOwnerScheduleData, GetOwnerScheduleErrors, GetOwnerScheduleResponses, GetScheduleExceptionData, GetScheduleExceptionErrors, GetScheduleExceptionResponses, ListOwnerBookingsData, ListOwnerBookingsErrors, ListOwnerBookingsResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses, ReplaceScheduleExceptionData, ReplaceScheduleExceptionErrors, ReplaceScheduleExceptionResponses, ReplaceWeeklyScheduleData, ReplaceWeeklyScheduleErrors, ReplaceWeeklyScheduleResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -18,11 +18,26 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
 
+export const createBooking = <ThrowOnError extends boolean = false>(options: Options<CreateBookingData, ThrowOnError>): RequestResult<CreateBookingResponses, CreateBookingErrors, ThrowOnError> => (options.client ?? client).post<CreateBookingResponses, CreateBookingErrors, ThrowOnError>({
+    url: '/api/bookings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getConfirmation = <ThrowOnError extends boolean = false>(options: Options<GetConfirmationData, ThrowOnError>): RequestResult<GetConfirmationResponses, GetConfirmationErrors, ThrowOnError> => (options.client ?? client).get<GetConfirmationResponses, GetConfirmationErrors, ThrowOnError>({ url: '/api/confirmations/{token}', ...options });
+
 export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({ url: '/api/health', ...options });
 
 export const getCatalog = <ThrowOnError extends boolean = false>(options?: Options<GetCatalogData, ThrowOnError>): RequestResult<GetCatalogResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetCatalogResponses, unknown, ThrowOnError>({ url: '/api/meeting-types', ...options });
 
 export const getAvailability = <ThrowOnError extends boolean = false>(options: Options<GetAvailabilityData, ThrowOnError>): RequestResult<GetAvailabilityResponses, GetAvailabilityErrors, ThrowOnError> => (options.client ?? client).get<GetAvailabilityResponses, GetAvailabilityErrors, ThrowOnError>({ url: '/api/meeting-types/{id}/availability', ...options });
+
+export const listOwnerBookings = <ThrowOnError extends boolean = false>(options: Options<ListOwnerBookingsData, ThrowOnError>): RequestResult<ListOwnerBookingsResponses, ListOwnerBookingsErrors, ThrowOnError> => (options.client ?? client).get<ListOwnerBookingsResponses, ListOwnerBookingsErrors, ThrowOnError>({ url: '/api/owner/bookings', ...options });
+
+export const getOwnerBooking = <ThrowOnError extends boolean = false>(options: Options<GetOwnerBookingData, ThrowOnError>): RequestResult<GetOwnerBookingResponses, GetOwnerBookingErrors, ThrowOnError> => (options.client ?? client).get<GetOwnerBookingResponses, GetOwnerBookingErrors, ThrowOnError>({ url: '/api/owner/bookings/{id}', ...options });
 
 export const ownerLogin = <ThrowOnError extends boolean = false>(options: Options<OwnerLoginData, ThrowOnError>): RequestResult<OwnerLoginResponses, OwnerLoginErrors, ThrowOnError> => (options.client ?? client).post<OwnerLoginResponses, OwnerLoginErrors, ThrowOnError>({
     url: '/api/owner/login',
