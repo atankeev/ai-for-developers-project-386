@@ -23,7 +23,18 @@ async function server() {
     OWNER_ALLOWED_ORIGIN: 'http://localhost:5173',
   });
   let time = Date.parse('2026-11-09T06:00:00Z');
-  const app = buildApp({ config, now: () => time });
+  let advanceAfterRead: number | undefined;
+  const app = buildApp({
+    config,
+    now: () => {
+      const current = time;
+      if (advanceAfterRead !== undefined) {
+        time = advanceAfterRead;
+        advanceAfterRead = undefined;
+      }
+      return current;
+    },
+  });
   const client = createClient({ baseUrl: await app.listen({ host: '127.0.0.1', port: 0 }) });
   const login = await ownerLogin({
     client,
@@ -73,6 +84,9 @@ async function server() {
         headers: { Origin: config.allowedOrigin },
       });
       headers.Cookie = result.response!.headers.get('set-cookie')!.split(';')[0]!;
+    },
+    advanceAtNextClockRead: (value: string) => {
+      advanceAfterRead = Date.parse(value);
     },
     setNow: (value: string) => {
       time = Date.parse(value);
@@ -228,6 +242,22 @@ test('cancelled pages sort by planned start and remain independent from current 
     expect(
       (await listOwnerBookings({ client, headers, query: { group: 'past' } })).data!.items,
     ).toEqual([]);
+  } finally {
+    await app.close();
+  }
+});
+
+test('request authenticated before start cannot cancel when its mutation processes at start', async () => {
+  const { app, client, headers, body, setNow, login, advanceAtNextClockRead } = await server();
+  try {
+    const created = (await createBooking({ client, body })).data!;
+    setNow('2026-11-10T05:59:59.999Z');
+    await login();
+    // The controlled clock crosses the boundary between request authentication and processing.
+    advanceAtNextClockRead('2026-11-10T06:00:00Z');
+    const result = await cancelBooking({ client, headers, path: { id: created.booking.id } });
+    expect(result.error?.code).toBe('CANCELLATION_UNAVAILABLE');
+    expect((await createBooking({ client, body })).data!.booking.status).toBe('confirmed');
   } finally {
     await app.close();
   }

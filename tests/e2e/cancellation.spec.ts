@@ -209,3 +209,33 @@ test('guest refreshes cancellation by button and visibility; expired owner sessi
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Отменить запись', exact: true })).toHaveCount(1);
 });
+
+test('pending cancellation disables dialog actions and prevents duplicate submission', async ({
+  page,
+  owner,
+}) => {
+  await setup(page, owner);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requests = 0;
+  await page.route('**/api/owner/bookings/*/cancel', async (route) => {
+    requests++;
+    await held;
+    await route.fallback();
+  });
+  await page.getByRole('button', { name: 'Отменить запись', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить отмену' }).click();
+  try {
+    await expect(page.getByRole('button', { name: 'Подтвердить отмену' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Оставить запись' })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(requests).toBe(1);
+  } finally {
+    release();
+  }
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText('Запись отменена');
+});
