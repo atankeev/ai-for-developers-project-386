@@ -72,3 +72,27 @@ model ReplaceWeeklyScheduleRequest { expectedVersion: int32; days: WeekdaySchedu
 op getOwnerSchedule(): WeeklySchedule | Unauthenticated;
 @route("/api/owner/schedule") @put @operationId("replaceWeeklySchedule")
 op replaceWeeklySchedule(@body body: ReplaceWeeklyScheduleRequest): WeeklySchedule | BadRequest | Unauthenticated | Forbidden;
+
+model CreateBookingRequest {
+ attemptId: string; meetingTypeId: string; startsAt: string;
+ guestName: string; guestEmail: string; comment?: string;
+}
+model GuestBooking {
+ id: string; title: string; startsAt: string; endsAt: string;
+ timeZone: "Europe/Moscow"; status: "confirmed" | "cancelled";
+}
+model BookingResult { booking: GuestBooking; confirmationUrl: string; }
+model OwnerBooking {
+ id: string; meetingTypeId: string; title: string; description: string; durationMinutes: int32;
+ startsAt: string; endsAt: string; status: "confirmed" | "cancelled"; cancelledAt: string | null;
+ guestName: string; guestEmail: string; comment: string;
+}
+model OwnerBookings { items: OwnerBooking[]; nextCursor: string | null; }
+@route("/api/bookings") @post @operationId("createBooking")
+op createBooking(@body body: CreateBookingRequest): BookingResult | BadRequest | NotFound;
+@route("/api/confirmations/{token}") @get @operationId("getConfirmation")
+op getConfirmation(@path token: string): GuestBooking | NotFound;
+@route("/api/owner/bookings") @get @operationId("listOwnerBookings")
+op listOwnerBookings(@query group: "upcoming" | "past" | "cancelled", @query cursor?: string): OwnerBookings | BadRequest | Unauthenticated;
+@route("/api/owner/bookings/{id}") @get @operationId("getOwnerBooking")
+op getOwnerBooking(@path id: string): OwnerBooking | NotFound | Unauthenticated;

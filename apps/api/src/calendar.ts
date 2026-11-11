@@ -1,5 +1,14 @@
+import {
+  normalizeBooking,
+  makeBooking,
+  guestBooking,
+  ownerBooking,
+  overlaps,
+  type Booking,
+} from './bookings.js';
 import { randomUUID } from 'node:crypto';
 import type {
+  CreateBookingRequest,
   CreateMeetingTypeRequest,
   MeetingType,
   PublicMeetingType,
@@ -41,6 +50,69 @@ export class Calendar {
         this.schedule = { version: this.schedule.version + 1, days };
       return this.getOwnerSchedule();
     });
+  }
+  readonly bookings = new Map<string, Booking>();
+  readonly confirmationIndex = new Map<string, string>();
+  readonly successfulAttempts = new Map<string, { request: string; bookingId: string }>();
+  createBooking(input: CreateBookingRequest) {
+    return this.mutate((now) => {
+      const normalized = normalizeBooking(input);
+      const request = JSON.stringify(normalized);
+      const attempt = this.successfulAttempts.get(normalized.attemptId);
+      if (attempt) {
+        if (attempt.request !== request)
+          throw new CalendarError(
+            'ATTEMPT_DATA_MISMATCH',
+            'Данные попытки отличаются от успешной записи',
+          );
+        return this.bookingResult(this.bookings.get(attempt.bookingId)!);
+      }
+      const type = this.meetingTypes.get(normalized.meetingTypeId);
+      if (!type || type.hidden)
+        throw new CalendarError('NOT_FOUND', 'Тип встречи не найден', undefined, 404);
+      const candidate = this.availability(type, now, false)
+        .days.flatMap((day) => day.slots)
+        .find((slot) => slot.startsAt === normalized.startsAt);
+      if (!candidate)
+        throw new CalendarError('TIME_UNAVAILABLE', 'Выбранное время больше недоступно');
+      if (
+        [...this.bookings.values()].some((booking) =>
+          overlaps(booking, candidate.startsAt, candidate.endsAt),
+        )
+      )
+        throw new CalendarError('SLOT_OCCUPIED', 'Это время уже занято');
+      const booking = makeBooking(normalized, type);
+      this.bookings.set(booking.id, booking);
+      this.confirmationIndex.set(booking.token, booking.id);
+      this.successfulAttempts.set(normalized.attemptId, { request, bookingId: booking.id });
+      return this.bookingResult(booking);
+    });
+  }
+  private bookingResult(booking: Booking) {
+    return { booking: guestBooking(booking), confirmationUrl: `/confirmations/${booking.token}` };
+  }
+  getConfirmation(token: string) {
+    const booking = this.bookings.get(this.confirmationIndex.get(token) ?? '');
+    if (!booking) throw new CalendarError('NOT_FOUND', 'Подтверждение не найдено', undefined, 404);
+    return guestBooking(booking);
+  }
+  getOwnerBooking(id: string) {
+    const booking = this.bookings.get(id);
+    if (!booking) throw new CalendarError('NOT_FOUND', 'Запись не найдена', undefined, 404);
+    return ownerBooking(booking);
+  }
+  listOwnerBookings(group: string, cursor?: string) {
+    if (group !== 'upcoming' || cursor)
+      throw new CalendarError('VALIDATION_ERROR', 'Недоступная группа или курсор');
+    const now = this.now();
+    return {
+      items: [...this.bookings.values()]
+        .filter((b) => b.status === 'confirmed' && Date.parse(b.endsAt) > now)
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.id.localeCompare(b.id))
+        .slice(0, 20)
+        .map(ownerBooking),
+      nextCursor: null,
+    };
   }
   readonly meetingTypes = new Map<string, MeetingType>();
   private mutations: Promise<unknown> = Promise.resolve();
@@ -126,10 +198,16 @@ export class Calendar {
       throw new CalendarError('NOT_FOUND', 'Тип встречи не найден', undefined, 404);
     return this.availability(type, this.now());
   }
-  private availability(type: MeetingType, now: number) {
+  private availability(type: MeetingType, now: number, filterOccupied = true) {
     const days = bookingDates(now).map((date) => ({
       date,
-      slots: slotsForDate(date, type.durationMinutes, this.schedule, now),
+      slots: slotsForDate(date, type.durationMinutes, this.schedule, now).filter(
+        (slot) =>
+          !filterOccupied ||
+          ![...this.bookings.values()].some((booking) =>
+            overlaps(booking, slot.startsAt, slot.endsAt),
+          ),
+      ),
     }));
     return {
       meetingType: publicType(type),

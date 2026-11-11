@@ -3,7 +3,15 @@ import { test as base, expect } from '@playwright/test';
 import { buildApp } from '../../apps/api/src/app.js';
 import { hashPassword, readOwnerConfig } from '../../apps/api/src/auth.js';
 
-export const test = base.extend<{ owner: { login: string; password: string }; api: void }>({
+export const test = base.extend<{
+  owner: { login: string; password: string };
+  api: void;
+  bookingFault: { dropNext: boolean; dropBefore: boolean };
+}>({
+  bookingFault: async ({ browserName }, use) => {
+    void browserName;
+    await use({ dropNext: false, dropBefore: false });
+  },
   owner: async ({ browserName }, use) => {
     await use({
       login: `${browserName}-${randomBytes(16).toString('hex')}`,
@@ -11,7 +19,7 @@ export const test = base.extend<{ owner: { login: string; password: string }; ap
     });
   },
   api: [
-    async ({ page, owner }, use) => {
+    async ({ page, owner, bookingFault }, use) => {
       const config = readOwnerConfig({
         OWNER_LOGIN: owner.login,
         OWNER_PASSWORD_HASH: hashPassword(owner.password),
@@ -23,9 +31,19 @@ export const test = base.extend<{ owner: { login: string; password: string }; ap
       // Transport routing only: each browser test owns a real isolated HTTP API process state.
       await page.route('**/api/**', async (route) => {
         const incoming = new URL(route.request().url());
+        if (incoming.pathname === '/api/bookings' && bookingFault.dropBefore) {
+          bookingFault.dropBefore = false;
+          await route.abort();
+          return;
+        }
         const response = await route.fetch({
           url: `${baseUrl}${incoming.pathname}${incoming.search}`,
         });
+        if (incoming.pathname === '/api/bookings' && bookingFault.dropNext && response.ok()) {
+          bookingFault.dropNext = false;
+          await route.abort();
+          return;
+        }
         await route.fulfill({ response });
       });
       try {

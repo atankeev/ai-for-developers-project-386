@@ -48,6 +48,23 @@ async function load() {
     if (current === generation) loading.value = false;
   }
 }
+async function refreshAvailability() {
+  const id = String(route.params.id),
+    current = generation;
+  try {
+    const result = await getAvailability({ path: { id } });
+    if (current !== generation) return;
+    if (result.data) {
+      availability.value = result.data;
+      type.value = result.data.meetingType;
+    } else if (result.response?.status === 404) {
+      missing.value = true;
+      type.value = undefined;
+    }
+  } catch {
+    /* Keep the editable form and existing refusal visible; selection never moves automatically. */
+  }
+}
 watch(() => route.params.id, load, { immediate: true });
 </script>
 <template>
@@ -67,7 +84,11 @@ watch(() => route.params.id, load, { immediate: true });
     <template v-else-if="type">
       <p class="plain-text">{{ type.description }}</p>
       <p>{{ type.durationMinutes }} минут</p>
-      <TimeSelection v-if="availability" :availability="availability" />
+      <TimeSelection
+        v-if="availability"
+        :availability="availability"
+        @refresh="refreshAvailability"
+      />
     </template>
     <template v-else>
       <p v-if="!items.length">Сейчас нет доступных типов встреч</p>

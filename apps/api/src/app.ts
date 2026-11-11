@@ -5,6 +5,7 @@ import cookie from '@fastify/cookie';
 import session from '@fastify/session';
 import openapiGlue from 'fastify-openapi-glue';
 import type {
+  CreateBookingRequest,
   HealthResponse,
   LoginRequest,
   CreateMeetingTypeRequest,
@@ -59,6 +60,8 @@ export function buildApp(
   // One boundary protects every present and future owner route before its handler or validation.
   app.addHook('onRequest', async (request, reply) => {
     const path = request.url.split('?')[0]!;
+    if (path === '/api/bookings' || path.startsWith('/api/confirmations/'))
+      reply.header('Cache-Control', 'no-store');
     if (path !== '/api/owner' && !path.startsWith('/api/owner/')) return;
     reply.header('Cache-Control', 'no-store');
     if (
@@ -122,6 +125,20 @@ export function buildApp(
   app.register(openapiGlue, {
     specification: fileURLToPath(import.meta.resolve('@call-calendar/api-contract/openapi.json')),
     serviceHandlers: {
+      async createBooking(request: FastifyRequest<{ Body: CreateBookingRequest }>) {
+        return calendar.createBooking(request.body);
+      },
+      async getConfirmation(request: FastifyRequest<{ Params: { token: string } }>) {
+        return calendar.getConfirmation(request.params.token);
+      },
+      async getOwnerBooking(request: FastifyRequest<{ Params: { id: string } }>) {
+        return calendar.getOwnerBooking(request.params.id);
+      },
+      async listOwnerBookings(
+        request: FastifyRequest<{ Querystring: { group: string; cursor?: string } }>,
+      ) {
+        return calendar.listOwnerBookings(request.query.group, request.query.cursor);
+      },
       async getOwnerSchedule() {
         return calendar.getOwnerSchedule();
       },
