@@ -49,7 +49,7 @@ async function save(remove = false) {
   const expectedVersion = loaded.value.version;
   try {
     const result = remove
-      ? await deleteScheduleException({ path, body: { expectedVersion } })
+      ? await deleteScheduleException({ path, query: { expectedVersion } })
       : await replaceScheduleException({
           path,
           body: { expectedVersion, intervals: loaded.value.intervals ?? [] },

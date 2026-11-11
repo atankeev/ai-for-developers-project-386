@@ -43,10 +43,6 @@ export type CreateMeetingTypeRequest = {
     durationMinutes: number;
 };
 
-export type DeleteScheduleExceptionRequest = {
-    expectedVersion: number;
-};
-
 export type HealthResponse = {
     status: 'ok';
 };
@@ -365,11 +361,13 @@ export type ReplaceWeeklyScheduleResponses = {
 export type ReplaceWeeklyScheduleResponse = ReplaceWeeklyScheduleResponses[keyof ReplaceWeeklyScheduleResponses];
 
 export type DeleteScheduleExceptionData = {
-    body: DeleteScheduleExceptionRequest;
+    body?: never;
     path: {
         date: string;
     };
-    query?: never;
+    query: {
+        expectedVersion: number;
+    };
     url: '/api/owner/schedule/exceptions/{date}';
 };
 

@@ -10,7 +10,6 @@ import type {
   CreateMeetingTypeRequest,
   ReplaceWeeklyScheduleRequest,
   ReplaceScheduleExceptionRequest,
-  DeleteScheduleExceptionRequest,
 } from '@call-calendar/api-contract';
 import { Calendar, CalendarError } from './calendar.js';
 import { readOwnerConfig, verifyPassword } from './auth.js';
@@ -136,9 +135,12 @@ export function buildApp(
         return calendar.replaceScheduleException(request.params.date, request.body);
       },
       async deleteScheduleException(
-        request: FastifyRequest<{ Params: { date: string }; Body: DeleteScheduleExceptionRequest }>,
+        request: FastifyRequest<{
+          Params: { date: string };
+          Querystring: { expectedVersion: number };
+        }>,
       ) {
-        return calendar.deleteScheduleException(request.params.date, request.body);
+        return calendar.deleteScheduleException(request.params.date, request.query.expectedVersion);
       },
       async getOwnerSchedule() {
         return calendar.getOwnerSchedule();

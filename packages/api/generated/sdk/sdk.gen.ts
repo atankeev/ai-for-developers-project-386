@@ -57,14 +57,7 @@ export const replaceWeeklySchedule = <ThrowOnError extends boolean = false>(opti
     }
 });
 
-export const deleteScheduleException = <ThrowOnError extends boolean = false>(options: Options<DeleteScheduleExceptionData, ThrowOnError>): RequestResult<DeleteScheduleExceptionResponses, DeleteScheduleExceptionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteScheduleExceptionResponses, DeleteScheduleExceptionErrors, ThrowOnError>({
-    url: '/api/owner/schedule/exceptions/{date}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
+export const deleteScheduleException = <ThrowOnError extends boolean = false>(options: Options<DeleteScheduleExceptionData, ThrowOnError>): RequestResult<DeleteScheduleExceptionResponses, DeleteScheduleExceptionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteScheduleExceptionResponses, DeleteScheduleExceptionErrors, ThrowOnError>({ url: '/api/owner/schedule/exceptions/{date}', ...options });
 
 export const getScheduleException = <ThrowOnError extends boolean = false>(options: Options<GetScheduleExceptionData, ThrowOnError>): RequestResult<GetScheduleExceptionResponses, GetScheduleExceptionErrors, ThrowOnError> => (options.client ?? client).get<GetScheduleExceptionResponses, GetScheduleExceptionErrors, ThrowOnError>({ url: '/api/owner/schedule/exceptions/{date}', ...options });
 

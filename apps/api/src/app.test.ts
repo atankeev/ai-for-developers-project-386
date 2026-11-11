@@ -778,8 +778,14 @@ test('date exceptions replace weekly hours, close and restore a date without res
       [],
     );
     expect(
-      (await deleteScheduleException({ client, headers: auth, path, body: { expectedVersion: 2 } }))
-        .data,
+      (
+        await deleteScheduleException({
+          client,
+          headers: auth,
+          path,
+          query: { expectedVersion: 2 },
+        })
+      ).data,
     ).toEqual({ date: path.date, version: 3, intervals: null });
     expect(
       (await getAvailability({ client, path: { id: type.id } })).data!.days[1]!.slots[0]!.startsAt,
@@ -829,7 +835,7 @@ test('exception dates, hours and versions validate without changes; access is pr
           client,
           headers: auth,
           path: { date },
-          body: { expectedVersion: 0 },
+          query: { expectedVersion: 0 },
         }),
       ])
         expect(result.error?.code).toBe('VALIDATION_ERROR');
@@ -874,16 +880,34 @@ test('exception dates, hours and versions validate without changes; access is pr
       ).data!.version,
     ).toBe(1);
     expect(
-      (await deleteScheduleException({ client, headers: auth, path, body: { expectedVersion: 0 } }))
-        .error!.code,
+      (
+        await deleteScheduleException({
+          client,
+          headers: auth,
+          path,
+          query: { expectedVersion: 0 },
+        })
+      ).error!.code,
     ).toBe('VERSION_CONFLICT');
     expect(
-      (await deleteScheduleException({ client, headers: auth, path, body: { expectedVersion: 1 } }))
-        .data!.version,
+      (
+        await deleteScheduleException({
+          client,
+          headers: auth,
+          path,
+          query: { expectedVersion: 1 },
+        })
+      ).data!.version,
     ).toBe(2);
     expect(
-      (await deleteScheduleException({ client, headers: auth, path, body: { expectedVersion: 2 } }))
-        .data!.version,
+      (
+        await deleteScheduleException({
+          client,
+          headers: auth,
+          path,
+          query: { expectedVersion: 2 },
+        })
+      ).data!.version,
     ).toBe(2);
     expect(
       (

@@ -482,6 +482,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "explode": false
           }
         ],
         "responses": {
@@ -522,16 +532,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
                 }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteScheduleExceptionRequest"
               }
             }
           }
@@ -700,18 +700,6 @@
             "type": "string"
           },
           "durationMinutes": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "DeleteScheduleExceptionRequest": {
-        "type": "object",
-        "required": [
-          "expectedVersion"
-        ],
-        "properties": {
-          "expectedVersion": {
             "type": "integer",
             "format": "int32"
           }

@@ -6,7 +6,6 @@ import type {
   WeeklySchedule,
   ReplaceWeeklyScheduleRequest,
   ReplaceScheduleExceptionRequest,
-  DeleteScheduleExceptionRequest,
 } from '@call-calendar/api-contract';
 
 import { ScheduleExceptions } from './exceptions.js';
@@ -53,8 +52,8 @@ export class Calendar {
   replaceScheduleException(date: string, input: ReplaceScheduleExceptionRequest) {
     return this.mutate(() => this.exceptions.replace(date, input.expectedVersion, input.intervals));
   }
-  deleteScheduleException(date: string, input: DeleteScheduleExceptionRequest) {
-    return this.mutate(() => this.exceptions.replace(date, input.expectedVersion, null));
+  deleteScheduleException(date: string, expectedVersion: number) {
+    return this.mutate(() => this.exceptions.replace(date, expectedVersion, null));
   }
   effectiveIntervals(date: string) {
     return (
