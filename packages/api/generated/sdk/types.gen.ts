@@ -16,6 +16,33 @@ export type Authenticated = {
     authenticated: true;
 };
 
+export type Availability = {
+    meetingType: PublicMeetingType;
+    timeZone: 'Europe/Moscow';
+    windowStart: string;
+    windowEnd: string;
+    days: Array<AvailabilityDay>;
+};
+
+export type AvailabilityDay = {
+    date: string;
+    slots: Array<Slot>;
+};
+
+export type Catalog = {
+    items: Array<CatalogItem>;
+};
+
+export type CatalogItem = PublicMeetingType & {
+    nearestStartsAt: string | null;
+};
+
+export type CreateMeetingTypeRequest = {
+    title: string;
+    description?: string;
+    durationMinutes: number;
+};
+
 export type HealthResponse = {
     status: 'ok';
 };
@@ -27,6 +54,37 @@ export type LoggedOut = {
 export type LoginRequest = {
     login: string;
     password: string;
+};
+
+export type MeetingType = PublicMeetingType & {
+    hidden: boolean;
+    version: number;
+};
+
+export type MeetingTypeResult = {
+    meetingType: MeetingType;
+    warnings: Array<Warning>;
+};
+
+export type OwnerMeetingTypes = {
+    items: Array<MeetingType>;
+};
+
+export type PublicMeetingType = {
+    id: string;
+    title: string;
+    description: string;
+    durationMinutes: number;
+};
+
+export type Slot = {
+    startsAt: string;
+    endsAt: string;
+};
+
+export type Warning = {
+    code: 'DURATION_EXCEEDS_WORKING_INTERVALS';
+    message: string;
 };
 
 export type GetHealthData = {
@@ -44,6 +102,49 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetCatalogData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/meeting-types';
+};
+
+export type GetCatalogResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Catalog;
+};
+
+export type GetCatalogResponse = GetCatalogResponses[keyof GetCatalogResponses];
+
+export type GetAvailabilityData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/meeting-types/{id}/availability';
+};
+
+export type GetAvailabilityErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type GetAvailabilityError = GetAvailabilityErrors[keyof GetAvailabilityErrors];
+
+export type GetAvailabilityResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Availability;
+};
+
+export type GetAvailabilityResponse = GetAvailabilityResponses[keyof GetAvailabilityResponses];
 
 export type OwnerLoginData = {
     body: LoginRequest;
@@ -110,6 +211,64 @@ export type OwnerLogoutResponses = {
 };
 
 export type OwnerLogoutResponse = OwnerLogoutResponses[keyof OwnerLogoutResponses];
+
+export type ListOwnerMeetingTypesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/owner/meeting-types';
+};
+
+export type ListOwnerMeetingTypesErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type ListOwnerMeetingTypesError = ListOwnerMeetingTypesErrors[keyof ListOwnerMeetingTypesErrors];
+
+export type ListOwnerMeetingTypesResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: OwnerMeetingTypes;
+};
+
+export type ListOwnerMeetingTypesResponse = ListOwnerMeetingTypesResponses[keyof ListOwnerMeetingTypesResponses];
+
+export type CreateMeetingTypeData = {
+    body: CreateMeetingTypeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/owner/meeting-types';
+};
+
+export type CreateMeetingTypeErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type CreateMeetingTypeError = CreateMeetingTypeErrors[keyof CreateMeetingTypeErrors];
+
+export type CreateMeetingTypeResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: MeetingTypeResult;
+};
+
+export type CreateMeetingTypeResponse = CreateMeetingTypeResponses[keyof CreateMeetingTypeResponses];
 
 export type OwnerSessionData = {
     body?: never;

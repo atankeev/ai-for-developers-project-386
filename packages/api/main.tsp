@@ -36,3 +36,30 @@ op ownerSession(): Authenticated | Unauthenticated;
 
 @route("/api/owner/logout") @post @operationId("ownerLogout")
 op ownerLogout(): LoggedOut | Unauthenticated | Forbidden;
+
+model NotFound { @statusCode statusCode: 404; @body body: ApiError; }
+model PublicMeetingType { id: string; title: string; description: string; durationMinutes: int32; }
+model MeetingType extends PublicMeetingType { hidden: boolean; version: int32; }
+model CreateMeetingTypeRequest { title: string; description?: string; durationMinutes: int32; }
+model Warning { code: "DURATION_EXCEEDS_WORKING_INTERVALS"; message: string; }
+model MeetingTypeResult { meetingType: MeetingType; warnings: Warning[]; }
+model OwnerMeetingTypes { items: MeetingType[]; }
+model CatalogItem extends PublicMeetingType { nearestStartsAt: string | null; }
+model Catalog { items: CatalogItem[]; }
+model Slot { startsAt: string; endsAt: string; }
+model AvailabilityDay { date: string; slots: Slot[]; }
+model Availability {
+  meetingType: PublicMeetingType;
+  timeZone: "Europe/Moscow";
+  windowStart: string;
+  windowEnd: string;
+  days: AvailabilityDay[];
+}
+@route("/api/owner/meeting-types") @get @operationId("listOwnerMeetingTypes")
+op listOwnerMeetingTypes(): OwnerMeetingTypes | Unauthenticated;
+@route("/api/owner/meeting-types") @post @operationId("createMeetingType")
+op createMeetingType(@body body: CreateMeetingTypeRequest): MeetingTypeResult | BadRequest | Unauthenticated | Forbidden;
+@route("/api/meeting-types") @get @operationId("getCatalog")
+op getCatalog(): Catalog;
+@route("/api/meeting-types/{id}/availability") @get @operationId("getAvailability")
+op getAvailability(@path id: string): Availability | NotFound;

@@ -4,7 +4,12 @@ import type { FastifyRequest, FastifyError, FastifyServerOptions } from 'fastify
 import cookie from '@fastify/cookie';
 import session from '@fastify/session';
 import openapiGlue from 'fastify-openapi-glue';
-import type { HealthResponse, LoginRequest } from '@call-calendar/api-contract';
+import type {
+  HealthResponse,
+  LoginRequest,
+  CreateMeetingTypeRequest,
+} from '@call-calendar/api-contract';
+import { Calendar, CalendarError } from './calendar.js';
 import { readOwnerConfig, verifyPassword } from './auth.js';
 import type { OwnerConfig } from './auth.js';
 
@@ -25,6 +30,7 @@ export function buildApp(
 ) {
   const config = options.config ?? readOwnerConfig();
   const now = options.now ?? Date.now;
+  const calendar = new Calendar(now);
   // Default request/error serializers include URLs and headers. Disable request logging entirely;
   // explicit lifecycle messages contain neither request data nor credentials.
   const app = Fastify({
@@ -87,9 +93,26 @@ export function buildApp(
     reply.code(404).send({ code: 'NOT_FOUND', message: 'Ресурс не найден' }),
   );
   app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof CalendarError)
+      return reply.code(error.status).send({
+        code: error.code,
+        message: error.message,
+        ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
+      });
     const failure = error as FastifyError;
     if (failure.validation || (failure.statusCode && failure.statusCode < 500)) {
-      return reply.code(400).send({ code: 'VALIDATION_ERROR', message: 'Проверьте поля запроса' });
+      const fieldErrors = Object.fromEntries(
+        (failure.validation ?? []).map((issue) => [
+          issue.instancePath.split('/').filter(Boolean)[0] ??
+            String(issue.params.missingProperty ?? 'body'),
+          'Проверьте значение поля',
+        ]),
+      );
+      return reply.code(400).send({
+        code: 'VALIDATION_ERROR',
+        message: 'Проверьте поля запроса',
+        ...(Object.keys(fieldErrors).length ? { fieldErrors } : {}),
+      });
     }
     // Never serialize the error: validator/runtime errors can contain supplied fields.
     app.log.error('Request failed');
@@ -98,6 +121,18 @@ export function buildApp(
   app.register(openapiGlue, {
     specification: fileURLToPath(import.meta.resolve('@call-calendar/api-contract/openapi.json')),
     serviceHandlers: {
+      async createMeetingType(request: FastifyRequest<{ Body: CreateMeetingTypeRequest }>) {
+        return calendar.createMeetingType(request.body);
+      },
+      async listOwnerMeetingTypes() {
+        return calendar.listOwnerMeetingTypes();
+      },
+      async getCatalog() {
+        return calendar.getCatalog();
+      },
+      async getAvailability(request: FastifyRequest<{ Params: { id: string } }>) {
+        return calendar.getAvailability(request.params.id);
+      },
       async getHealth(): Promise<HealthResponse> {
         return { status: 'ok' };
       },

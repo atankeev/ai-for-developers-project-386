@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { GetHealthData, GetHealthResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses } from './types.gen.js';
+import type { CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetHealthData, GetHealthResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -20,6 +20,10 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 
 export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({ url: '/api/health', ...options });
 
+export const getCatalog = <ThrowOnError extends boolean = false>(options?: Options<GetCatalogData, ThrowOnError>): RequestResult<GetCatalogResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetCatalogResponses, unknown, ThrowOnError>({ url: '/api/meeting-types', ...options });
+
+export const getAvailability = <ThrowOnError extends boolean = false>(options: Options<GetAvailabilityData, ThrowOnError>): RequestResult<GetAvailabilityResponses, GetAvailabilityErrors, ThrowOnError> => (options.client ?? client).get<GetAvailabilityResponses, GetAvailabilityErrors, ThrowOnError>({ url: '/api/meeting-types/{id}/availability', ...options });
+
 export const ownerLogin = <ThrowOnError extends boolean = false>(options: Options<OwnerLoginData, ThrowOnError>): RequestResult<OwnerLoginResponses, OwnerLoginErrors, ThrowOnError> => (options.client ?? client).post<OwnerLoginResponses, OwnerLoginErrors, ThrowOnError>({
     url: '/api/owner/login',
     ...options,
@@ -30,5 +34,16 @@ export const ownerLogin = <ThrowOnError extends boolean = false>(options: Option
 });
 
 export const ownerLogout = <ThrowOnError extends boolean = false>(options?: Options<OwnerLogoutData, ThrowOnError>): RequestResult<OwnerLogoutResponses, OwnerLogoutErrors, ThrowOnError> => (options?.client ?? client).post<OwnerLogoutResponses, OwnerLogoutErrors, ThrowOnError>({ url: '/api/owner/logout', ...options });
+
+export const listOwnerMeetingTypes = <ThrowOnError extends boolean = false>(options?: Options<ListOwnerMeetingTypesData, ThrowOnError>): RequestResult<ListOwnerMeetingTypesResponses, ListOwnerMeetingTypesErrors, ThrowOnError> => (options?.client ?? client).get<ListOwnerMeetingTypesResponses, ListOwnerMeetingTypesErrors, ThrowOnError>({ url: '/api/owner/meeting-types', ...options });
+
+export const createMeetingType = <ThrowOnError extends boolean = false>(options: Options<CreateMeetingTypeData, ThrowOnError>): RequestResult<CreateMeetingTypeResponses, CreateMeetingTypeErrors, ThrowOnError> => (options.client ?? client).post<CreateMeetingTypeResponses, CreateMeetingTypeErrors, ThrowOnError>({
+    url: '/api/owner/meeting-types',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 export const ownerSession = <ThrowOnError extends boolean = false>(options?: Options<OwnerSessionData, ThrowOnError>): RequestResult<OwnerSessionResponses, OwnerSessionErrors, ThrowOnError> => (options?.client ?? client).get<OwnerSessionResponses, OwnerSessionErrors, ThrowOnError>({ url: '/api/owner/session', ...options });

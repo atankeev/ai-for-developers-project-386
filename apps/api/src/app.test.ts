@@ -1,7 +1,16 @@
 import { Writable } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 import { expect, test } from 'vitest';
-import { getHealth, ownerLogin, ownerSession, ownerLogout } from '@call-calendar/api-contract';
+import {
+  getHealth,
+  ownerLogin,
+  ownerSession,
+  ownerLogout,
+  createMeetingType,
+  listOwnerMeetingTypes,
+  getCatalog,
+  getAvailability,
+} from '@call-calendar/api-contract';
 import { createClient } from '@call-calendar/api-contract/client';
 import { buildApp } from './app.js';
 import { hashPassword, readOwnerConfig } from './auth.js';
@@ -15,7 +24,7 @@ const config = readOwnerConfig({
 });
 
 async function server() {
-  let now = Date.now();
+  let now = Date.parse('2026-11-09T20:59:59Z');
   const app = buildApp({ config, now: () => now });
   const baseUrl = await app.listen({ host: '127.0.0.1', port: 0 });
   const client = createClient({ baseUrl });
@@ -289,5 +298,160 @@ test('responses and logs never serialize credentials, cookies or secret request 
     expect(logs).toContain('Server listening');
   } finally {
     await app.close();
+  }
+});
+
+test('owner creates a type and guests see its current conditions without private version', async () => {
+  const { app, client, advance } = await server();
+  try {
+    expect((await getCatalog({ client })).data).toEqual({ items: [] });
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const created = await createMeetingType({
+      client,
+      headers: headers(cookie(login.response)),
+      body: { title: '  Разговор  ', description: '<b>Текст</b>', durationMinutes: 17 },
+    });
+    expect(created.response!.status).toBe(200);
+    expect(created.data).toMatchObject({
+      meetingType: {
+        title: 'Разговор',
+        description: '<b>Текст</b>',
+        durationMinutes: 17,
+        hidden: false,
+        version: 1,
+      },
+      warnings: [{ code: 'DURATION_EXCEEDS_WORKING_INTERVALS' }],
+    });
+    const id = created.data!.meetingType.id;
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(
+      (await listOwnerMeetingTypes({ client, headers: headers(cookie(login.response)) })).data!
+        .items,
+    ).toHaveLength(1);
+    expect((await getCatalog({ client })).data).toEqual({
+      items: [
+        {
+          id,
+          title: 'Разговор',
+          description: '<b>Текст</b>',
+          durationMinutes: 17,
+          nearestStartsAt: null,
+        },
+      ],
+    });
+    const availability = await getAvailability({ client, path: { id } });
+    expect(availability.data!.meetingType).toEqual({
+      id,
+      title: 'Разговор',
+      description: '<b>Текст</b>',
+      durationMinutes: 17,
+    });
+    expect(availability.data).toMatchObject({
+      timeZone: 'Europe/Moscow',
+      windowStart: '2026-11-10',
+      windowEnd: '2026-11-23',
+    });
+    expect(availability.data!.days).toHaveLength(14);
+    expect(availability.data!.days.every((day) => day.slots.length === 0)).toBe(true);
+    advance(1000);
+    expect((await getAvailability({ client, path: { id } })).data).toMatchObject({
+      windowStart: '2026-11-11',
+      windowEnd: '2026-11-24',
+    });
+    expect((await getAvailability({ client, path: { id: 'absent' } })).response!.status).toBe(404);
+  } finally {
+    await app.close();
+  }
+});
+
+test('type validation counts Unicode code points, normalizes titles and serializes concurrent duplicates', async () => {
+  const { app, client } = await server();
+  try {
+    const login = await ownerLogin({ client, body: credentials(), headers: headers() });
+    const authorized = headers(cookie(login.response));
+    for (const [field, body] of [
+      ['title', { title: '   ', durationMinutes: 1 }],
+      ['title', { title: '😀'.repeat(101), durationMinutes: 1 }],
+      [
+        'description',
+        { title: 'Long description', description: '😀'.repeat(2001), durationMinutes: 1 },
+      ],
+      ['durationMinutes', { title: 'Duration', durationMinutes: 0 }],
+      ['durationMinutes', { title: 'Duration', durationMinutes: 1441 }],
+      ['durationMinutes', { title: 'Duration', durationMinutes: 1.5 }],
+    ] as const) {
+      const result = await createMeetingType({ client, headers: authorized, body });
+      expect(result.response!.status).toBe(400);
+      expect(result.error).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fieldErrors: { [field]: expect.any(String) },
+      });
+    }
+    expect(
+      (
+        await createMeetingType({
+          client,
+          headers: authorized,
+          body: { title: '😀'.repeat(100), description: '😀'.repeat(2000), durationMinutes: 1440 },
+        })
+      ).response!.status,
+    ).toBe(200);
+    const results = await Promise.all(
+      ['  ВСТРЕЧА ', 'встреча'].map((title) =>
+        createMeetingType({ client, headers: authorized, body: { title, durationMinutes: 1 } }),
+      ),
+    );
+    expect(results.map((result) => result.response!.status).sort()).toEqual([200, 400]);
+    expect(results.find((result) => result.error)?.error).toMatchObject({
+      code: 'MEETING_TYPE_TITLE_EXISTS',
+      fieldErrors: { title: expect.any(String) },
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test('private types require session and Origin; app restart loses types and old links', async () => {
+  const first = await server();
+  const second = await server();
+  try {
+    expect((await listOwnerMeetingTypes({ client: first.client })).response!.status).toBe(401);
+    expect(
+      (
+        await createMeetingType({
+          client: first.client,
+          headers: headers(),
+          body: { title: 'Private', durationMinutes: 30 },
+        })
+      ).response!.status,
+    ).toBe(401);
+    const login = await ownerLogin({
+      client: first.client,
+      headers: headers(),
+      body: credentials(),
+    });
+    expect(
+      (
+        await createMeetingType({
+          client: first.client,
+          headers: { Cookie: cookie(login.response) },
+          body: { title: 'Private', durationMinutes: 30 },
+        })
+      ).response!.status,
+    ).toBe(403);
+    const result = await createMeetingType({
+      client: first.client,
+      headers: headers(cookie(login.response)),
+      body: { title: 'Private', durationMinutes: 30 },
+    });
+    expect(result.response!.headers.get('cache-control')).toBe('no-store');
+    expect((await getCatalog({ client: second.client })).data).toEqual({ items: [] });
+    expect(
+      (await getAvailability({ client: second.client, path: { id: result.data!.meetingType.id } }))
+        .response!.status,
+    ).toBe(404);
+  } finally {
+    await first.app.close();
+    await second.app.close();
   }
 });

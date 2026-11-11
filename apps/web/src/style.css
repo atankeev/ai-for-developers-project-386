@@ -108,3 +108,28 @@ a:focus-visible {
   outline: 3px solid #047857;
   outline-offset: 4px;
 }
+
+.meeting-card {
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 1rem;
+  overflow-wrap: anywhere;
+}
+.plain-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+h1,
+h2 {
+  overflow-wrap: anywhere;
+}
+.login-form :is(input, textarea) {
+  width: 100%;
+  min-width: 0;
+}
+:where(textarea):focus-visible {
+  outline: 3px solid #047857;
+  outline-offset: 4px;
+}
