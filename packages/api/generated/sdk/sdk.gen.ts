@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { CancelBookingData, CancelBookingErrors, CancelBookingResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, DeleteScheduleExceptionData, DeleteScheduleExceptionErrors, DeleteScheduleExceptionResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetConfirmationData, GetConfirmationErrors, GetConfirmationResponses, GetHealthData, GetHealthResponses, GetOwnerBookingData, GetOwnerBookingErrors, GetOwnerBookingResponses, GetOwnerScheduleData, GetOwnerScheduleErrors, GetOwnerScheduleResponses, GetScheduleExceptionData, GetScheduleExceptionErrors, GetScheduleExceptionResponses, ListOwnerBookingsData, ListOwnerBookingsErrors, ListOwnerBookingsResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses, ReplaceScheduleExceptionData, ReplaceScheduleExceptionErrors, ReplaceScheduleExceptionResponses, ReplaceWeeklyScheduleData, ReplaceWeeklyScheduleErrors, ReplaceWeeklyScheduleResponses } from './types.gen.js';
+import type { CancelBookingData, CancelBookingErrors, CancelBookingResponses, CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, DeleteScheduleExceptionData, DeleteScheduleExceptionErrors, DeleteScheduleExceptionResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetCatalogData, GetCatalogResponses, GetConfirmationData, GetConfirmationErrors, GetConfirmationResponses, GetHealthData, GetHealthResponses, GetOwnerBookingData, GetOwnerBookingErrors, GetOwnerBookingResponses, GetOwnerScheduleData, GetOwnerScheduleErrors, GetOwnerScheduleResponses, GetScheduleExceptionData, GetScheduleExceptionErrors, GetScheduleExceptionResponses, ListOwnerBookingsData, ListOwnerBookingsErrors, ListOwnerBookingsResponses, ListOwnerMeetingTypesData, ListOwnerMeetingTypesErrors, ListOwnerMeetingTypesResponses, OwnerLoginData, OwnerLoginErrors, OwnerLoginResponses, OwnerLogoutData, OwnerLogoutErrors, OwnerLogoutResponses, OwnerSessionData, OwnerSessionErrors, OwnerSessionResponses, ReplaceMeetingTypeData, ReplaceMeetingTypeErrors, ReplaceMeetingTypeResponses, ReplaceScheduleExceptionData, ReplaceScheduleExceptionErrors, ReplaceScheduleExceptionResponses, ReplaceWeeklyScheduleData, ReplaceWeeklyScheduleErrors, ReplaceWeeklyScheduleResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -56,6 +56,15 @@ export const listOwnerMeetingTypes = <ThrowOnError extends boolean = false>(opti
 
 export const createMeetingType = <ThrowOnError extends boolean = false>(options: Options<CreateMeetingTypeData, ThrowOnError>): RequestResult<CreateMeetingTypeResponses, CreateMeetingTypeErrors, ThrowOnError> => (options.client ?? client).post<CreateMeetingTypeResponses, CreateMeetingTypeErrors, ThrowOnError>({
     url: '/api/owner/meeting-types',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const replaceMeetingType = <ThrowOnError extends boolean = false>(options: Options<ReplaceMeetingTypeData, ThrowOnError>): RequestResult<ReplaceMeetingTypeResponses, ReplaceMeetingTypeErrors, ThrowOnError> => (options.client ?? client).put<ReplaceMeetingTypeResponses, ReplaceMeetingTypeErrors, ThrowOnError>({
+    url: '/api/owner/meeting-types/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

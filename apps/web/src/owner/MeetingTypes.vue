@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, nextTick } from 'vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import {
   createMeetingType,
+  replaceMeetingType,
   listOwnerMeetingTypes,
   type MeetingType,
 } from '@call-calendar/api-contract';
@@ -19,6 +20,43 @@ const duration = ref('30');
 const errors = ref<Record<string, string>>({});
 const message = ref('');
 const warning = ref('');
+const editing = ref<MeetingType>();
+const hidden = ref(false);
+const conflict = ref(false);
+const form = ref<HTMLFormElement>();
+function reset() {
+  editing.value = undefined;
+  title.value = '';
+  description.value = '';
+  duration.value = '30';
+  hidden.value = false;
+  errors.value = {};
+  message.value = '';
+  conflict.value = false;
+}
+async function edit(item: MeetingType) {
+  editing.value = { ...item };
+  title.value = item.title;
+  description.value = item.description;
+  duration.value = String(item.durationMinutes);
+  hidden.value = item.hidden;
+  errors.value = {};
+  message.value = '';
+  conflict.value = false;
+  warning.value = '';
+  await nextTick();
+  form.value?.querySelector<HTMLInputElement>('input')?.focus();
+}
+async function reloadEditing() {
+  const id = editing.value?.id;
+  await load();
+  const current = items.value.find((item) => item.id === id);
+  if (!failed.value && current) await edit(current);
+}
+async function focusError() {
+  await nextTick();
+  form.value?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+}
 async function load() {
   loading.value = true;
   failed.value = false;
@@ -43,21 +81,30 @@ async function submit() {
   const minutes = Number(duration.value);
   if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440)
     errors.value.durationMinutes = 'Длительность должна быть целым числом от 1 до 1440 минут';
-  if (Object.keys(errors.value).length) return;
+  if (Object.keys(errors.value).length) {
+    await focusError();
+    return;
+  }
   busy.value = true;
   try {
-    const { data, error } = await createMeetingType({
-      body: { title: title.value, description: description.value, durationMinutes: minutes },
-    });
+    const body = { title: title.value, description: description.value, durationMinutes: minutes };
+    const { data, error } = editing.value
+      ? await replaceMeetingType({
+          path: { id: editing.value.id },
+          body: { ...body, hidden: hidden.value, expectedVersion: editing.value.version },
+        })
+      : await createMeetingType({ body });
     if (data) {
-      items.value.push(data.meetingType);
-      title.value = '';
-      description.value = '';
-      duration.value = '30';
+      const index = items.value.findIndex((item) => item.id === data.meetingType.id);
+      if (index < 0) items.value.push(data.meetingType);
+      else items.value[index] = data.meetingType;
+      reset();
       warning.value = data.warnings.map((item) => item.message).join(' ');
     } else {
       errors.value = error?.fieldErrors ?? {};
-      message.value = error?.message ?? 'Не удалось создать тип встречи';
+      conflict.value = error?.code === 'VERSION_CONFLICT';
+      message.value = error?.message ?? 'Не удалось сохранить тип встречи';
+      if (Object.keys(errors.value).length) await focusError();
     }
   } catch (error) {
     if (!(error instanceof SessionExpired))
@@ -81,10 +128,12 @@ onMounted(load);
         <h2>{{ item.title }}</h2>
         <p class="plain-text">{{ item.description }}</p>
         <p>{{ item.durationMinutes }} минут</p>
+        <p v-if="item.hidden">Скрыт в каталоге</p>
+        <Button :label="`Редактировать ${item.title}`" :disabled="busy" @click="edit(item)" />
         <RouterLink :to="`/book/${item.id}`">Открыть страницу встречи</RouterLink>
       </article>
-      <h2>Новый тип встречи</h2>
-      <form class="login-form" novalidate @submit.prevent="submit">
+      <h2>{{ editing ? 'Редактировать тип встречи' : 'Новый тип встречи' }}</h2>
+      <form ref="form" class="login-form" novalidate @submit.prevent="submit">
         <label for="type-title">Название</label
         ><InputText
           id="type-title"
@@ -120,9 +169,25 @@ onMounted(load);
         <small v-if="errors.durationMinutes" id="duration-error" role="alert">{{
           errors.durationMinutes
         }}</small>
+        <label v-if="editing" for="type-hidden">
+          <input id="type-hidden" v-model="hidden" type="checkbox" :disabled="busy" />
+          Скрыть тип в каталоге
+        </label>
         <p v-if="message" role="alert">{{ message }}</p>
         <p v-if="warning" role="status">{{ warning }}</p>
-        <Button type="submit" label="Создать тип встречи" :loading="busy" :disabled="busy" />
+        <Button
+          v-if="conflict"
+          label="Загрузить актуальные данные"
+          :disabled="busy"
+          @click="reloadEditing"
+        />
+        <Button
+          type="submit"
+          :label="editing ? 'Сохранить тип встречи' : 'Создать тип встречи'"
+          :loading="busy"
+          :disabled="busy || conflict"
+        />
+        <Button v-if="editing" label="Отменить редактирование" :disabled="busy" @click="reset" />
       </form>
     </template>
   </section>
