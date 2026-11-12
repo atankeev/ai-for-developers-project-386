@@ -1,0 +1,14 @@
+.git
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/.idea
+**/.vscode
+**/*.pem
+**/*.key
+mise.local.toml
+hk.local.pkl
+test-results
+playwright-report
+coverage

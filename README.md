@@ -64,6 +64,40 @@ mise run stop
 
 После изменения контракта выполните `mise run generate`, затем перезапустите `mise run dev`, чтобы пересобрать SDK.
 
+## Запуск в Docker
+
+Из корня репозитория:
+
+```bash
+docker build -t call-calendar .
+docker run --rm --name call-calendar -e PORT=8080 -p 8080:8080 call-calendar
+```
+
+Контейнер автоматически запускает приложение на `0.0.0.0:$PORT` (по умолчанию
+`3000`). Интерфейс и API доступны на одном порту: http://localhost:8080,
+http://localhost:8080/book, http://localhost:8080/owner и
+http://localhost:8080/api/health. Прямое открытие и обновление страниц поддерживаются.
+
+Для пробного запуска достаточно `PORT`: при отсутствии всех четырёх `OWNER_*`
+сервер создаёт владельца `test` со случайным паролем. Получить данные входа
+можно в другом терминале:
+
+```bash
+docker exec call-calendar cat /tmp/call-calendar-owner.json
+```
+
+Данные входа меняются при каждом запуске процесса и не записываются в образ или
+логи. Для этого режима открывайте сайт через `http://localhost:$PORT` и используйте
+одинаковый порт снаружи и внутри контейнера. Для постоянной настройки передайте
+все четыре переменные из раздела Owner access через `docker run -e`;
+`OWNER_ALLOWED_ORIGIN` должен совпадать с внешним адресом сайта. Неполная
+настройка владельца считается ошибкой. Данные приложения и сессии теряются
+при перезапуске, как и при локальном запуске.
+
+Образ собирает SDK, сервер и интерфейс, запускается от пользователя `node`
+и содержит только рабочие зависимости. Локальные зависимости, результаты сборки
+и файлы с локальными настройками исключены из контекста Docker.
+
 ## Проверки
 
 ```bash
@@ -95,7 +129,8 @@ mise exec -- npm run preview --workspace @call-calendar/web
 
 Preview доступен на http://127.0.0.1:4173 и предназначен для локальной проверки сборки, а не для публикации в интернете.
 
-Переходы между главной и `/book` выполняются обычными ссылками. Vite dev и preview поддерживают прямое открытие и обновление `/book`. При будущей публикации веб-сервер должен возвращать `index.html` для этого адреса.
+Vite dev, preview и сервер в Docker поддерживают прямое открытие и обновление
+страниц приложения: для клиентских маршрутов возвращается `index.html`.
 
 ## Источники настройки
 
@@ -160,10 +195,11 @@ PR и теги, созданные этим токеном, не запуска�
 
 ### Owner access
 
-The server requires `OWNER_LOGIN`, `OWNER_PASSWORD_HASH`, `OWNER_COOKIE_SECRET`
+For an explicitly configured owner, the server requires `OWNER_LOGIN`, `OWNER_PASSWORD_HASH`, `OWNER_COOKIE_SECRET`
 (at least 32 characters, different from the password), and `OWNER_ALLOWED_ORIGIN`
 (the exact site origin including scheme and port, without a trailing slash).
-There are no default credentials. Set these in your shell or hosting secret settings.
+Set these in your shell or hosting secret settings. Docker also supports the
+temporary owner described in «Запуск в Docker» when all four variables are absent.
 Run `mise exec -- npm run password:hash` in a terminal to generate a scrypt hash;
 password input is hidden and never passed as a command argument. Generate the
 independent cookie secret with a cryptographically secure random generator.

@@ -158,10 +158,7 @@ onMounted(load);
         ><InputText
           id="type-duration"
           v-model="duration"
-          type="number"
-          min="1"
-          max="1440"
-          step="1"
+          inputmode="numeric"
           :aria-invalid="!!errors.durationMinutes"
           aria-describedby="duration-error"
           :disabled="busy"
