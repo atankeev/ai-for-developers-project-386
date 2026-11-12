@@ -75,3 +75,165 @@ a:focus-visible {
     margin-top: 3rem;
   }
 }
+
+:where(a, button, input):focus-visible {
+  outline: 3px solid #047857;
+  outline-offset: 4px;
+}
+.owner-page h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+.owner-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-items: center;
+}
+.owner-nav a {
+  color: #065f46;
+  line-height: 1.6;
+}
+.owner-nav .router-link-active {
+  font-weight: 700;
+}
+.login-form {
+  display: grid;
+  gap: 0.75rem;
+  width: min(100%, 360px);
+}
+.login-form .p-button {
+  margin-top: 0.5rem;
+}
+.owner-page .login-form input.p-inputtext:focus-visible {
+  outline: 3px solid #047857;
+  outline-offset: 4px;
+}
+
+.meeting-card {
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 1rem;
+  overflow-wrap: anywhere;
+}
+.plain-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+h1,
+h2 {
+  overflow-wrap: anywhere;
+}
+.login-form :is(input, textarea) {
+  width: 100%;
+  min-width: 0;
+}
+:where(textarea):focus-visible {
+  outline: 3px solid #047857;
+  outline-offset: 4px;
+}
+
+.schedule-day {
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  min-width: 0;
+}
+.working-interval {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+.working-interval label {
+  display: grid;
+  gap: 0.4rem;
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+.working-interval input {
+  width: 100%;
+  min-width: 0;
+}
+.booking-selection {
+  display: grid;
+  gap: 2rem;
+}
+.calendar-dates {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  text-align: center;
+  max-width: 34rem;
+}
+.calendar-dates button {
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid #9ca3af;
+  border-radius: 0.5rem;
+  background: white;
+  font: inherit;
+  cursor: pointer;
+}
+.calendar-dates button:disabled {
+  color: #6b7280;
+  background: #e5e7eb;
+  cursor: default;
+}
+.calendar-dates button[aria-pressed='true'],
+.time-buttons button[aria-pressed='true'] {
+  background: #065f46;
+  color: white;
+}
+.time-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.selection-summary {
+  padding: 1rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 1rem;
+  align-self: start;
+}
+@media (min-width: 900px) {
+  .page:has(.booking-selection) {
+    width: min(100% - 3rem, 1150px);
+  }
+  .booking-selection {
+    grid-template-columns: 3fr 2fr;
+  }
+}
+
+.contact-form {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.contact-form :is(input, textarea),
+.confirmation-page input {
+  width: 100%;
+  min-width: 0;
+}
+.contact-form button {
+  white-space: normal;
+}
+.confirmation-page {
+  overflow-wrap: anywhere;
+}
+.owner-bookings {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.recovery-notice {
+  width: min(100% - 2rem, 72rem);
+  margin: 1rem auto;
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.75rem;
+}

@@ -17,7 +17,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p tsconfig.tools.json",
     "test": "vitest run",
     "check": "npm run generate:check && npm run lint && npm run format:check && npm run build && npm run typecheck && npm test && playwright test",
-    "test:e2e": "npm run build --workspace @call-calendar/web && playwright test"
+    "test:e2e": "npm run build --workspace @call-calendar/web && playwright test",
+    "password:hash": "tsx scripts/hash-password.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

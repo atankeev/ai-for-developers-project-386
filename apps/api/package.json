@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@call-calendar/api-contract": "0.0.0",
+    "@fastify/cookie": "11.1.5",
+    "@fastify/session": "11.1.6",
     "fastify": "5.12.7",
     "fastify-openapi-glue": "4.12.0"
   },

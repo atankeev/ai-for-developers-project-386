@@ -4,9 +4,230 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type ApiError = {
+    code: string;
+    message: string;
+    fieldErrors?: {
+        [key: string]: string;
+    };
+};
+
+export type Authenticated = {
+    authenticated: true;
+};
+
+export type Availability = {
+    meetingType: PublicMeetingType;
+    timeZone: 'Europe/Moscow';
+    windowStart: string;
+    windowEnd: string;
+    days: Array<AvailabilityDay>;
+};
+
+export type AvailabilityDay = {
+    date: string;
+    slots: Array<Slot>;
+};
+
+export type BookingResult = {
+    booking: GuestBooking;
+    confirmationUrl: string;
+};
+
+export type Catalog = {
+    items: Array<CatalogItem>;
+};
+
+export type CatalogItem = PublicMeetingType & {
+    nearestStartsAt: string | null;
+};
+
+export type CreateBookingRequest = {
+    attemptId: string;
+    meetingTypeId: string;
+    startsAt: string;
+    guestName: string;
+    guestEmail: string;
+    comment?: string;
+};
+
+export type CreateMeetingTypeRequest = {
+    title: string;
+    description?: string;
+    durationMinutes: number;
+};
+
+export type GuestBooking = {
+    id: string;
+    title: string;
+    startsAt: string;
+    endsAt: string;
+    timeZone: 'Europe/Moscow';
+    status: 'confirmed' | 'cancelled';
+};
+
 export type HealthResponse = {
     status: 'ok';
 };
+
+export type LoggedOut = {
+    authenticated: false;
+};
+
+export type LoginRequest = {
+    login: string;
+    password: string;
+};
+
+export type MeetingType = PublicMeetingType & {
+    hidden: boolean;
+    version: number;
+};
+
+export type MeetingTypeResult = {
+    meetingType: MeetingType;
+    warnings: Array<Warning>;
+};
+
+export type OwnerBooking = {
+    id: string;
+    meetingTypeId: string;
+    title: string;
+    description: string;
+    durationMinutes: number;
+    startsAt: string;
+    endsAt: string;
+    status: 'confirmed' | 'cancelled';
+    cancelledAt: string | null;
+    guestName: string;
+    guestEmail: string;
+    comment: string;
+};
+
+/**
+ * Live keyset pages contain at most 20 bookings. A cursor belongs to exactly one group.
+ */
+export type OwnerBookings = {
+    items: Array<OwnerBooking>;
+    nextCursor: string | null;
+};
+
+export type OwnerMeetingTypes = {
+    items: Array<MeetingType>;
+};
+
+export type PublicMeetingType = {
+    id: string;
+    title: string;
+    description: string;
+    durationMinutes: number;
+};
+
+export type ReplaceMeetingTypeRequest = {
+    title: string;
+    description: string;
+    durationMinutes: number;
+    hidden: boolean;
+    expectedVersion: number;
+};
+
+export type ReplaceScheduleExceptionRequest = {
+    expectedVersion: number;
+    intervals: Array<WorkingInterval>;
+};
+
+export type ReplaceWeeklyScheduleRequest = {
+    expectedVersion: number;
+    days: Array<WeekdaySchedule>;
+};
+
+export type ScheduleException = {
+    date: string;
+    version: number;
+    intervals: Array<WorkingInterval> | null;
+};
+
+export type Slot = {
+    startsAt: string;
+    endsAt: string;
+};
+
+export type Warning = {
+    code: 'DURATION_EXCEEDS_WORKING_INTERVALS';
+    message: string;
+};
+
+export type WeekdaySchedule = {
+    day: number;
+    intervals: Array<WorkingInterval>;
+};
+
+export type WeeklySchedule = {
+    version: number;
+    days: Array<WeekdaySchedule>;
+    exceptions: Array<ScheduleException>;
+};
+
+export type WorkingInterval = {
+    start: string;
+    end: string;
+};
+
+export type CreateBookingData = {
+    body: CreateBookingRequest;
+    path?: never;
+    query?: never;
+    url: '/api/bookings';
+};
+
+export type CreateBookingErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type CreateBookingError = CreateBookingErrors[keyof CreateBookingErrors];
+
+export type CreateBookingResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: BookingResult;
+};
+
+export type CreateBookingResponse = CreateBookingResponses[keyof CreateBookingResponses];
+
+export type GetConfirmationData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/api/confirmations/{token}';
+};
+
+export type GetConfirmationErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type GetConfirmationError = GetConfirmationErrors[keyof GetConfirmationErrors];
+
+export type GetConfirmationResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: GuestBooking;
+};
+
+export type GetConfirmationResponse = GetConfirmationResponses[keyof GetConfirmationResponses];
 
 export type GetHealthData = {
     body?: never;
@@ -23,3 +244,497 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetCatalogData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/meeting-types';
+};
+
+export type GetCatalogResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Catalog;
+};
+
+export type GetCatalogResponse = GetCatalogResponses[keyof GetCatalogResponses];
+
+export type GetAvailabilityData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/meeting-types/{id}/availability';
+};
+
+export type GetAvailabilityErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type GetAvailabilityError = GetAvailabilityErrors[keyof GetAvailabilityErrors];
+
+export type GetAvailabilityResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Availability;
+};
+
+export type GetAvailabilityResponse = GetAvailabilityResponses[keyof GetAvailabilityResponses];
+
+export type ListOwnerBookingsData = {
+    body?: never;
+    path?: never;
+    query: {
+        group: 'upcoming' | 'past' | 'cancelled';
+        cursor?: string;
+    };
+    url: '/api/owner/bookings';
+};
+
+export type ListOwnerBookingsErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type ListOwnerBookingsError = ListOwnerBookingsErrors[keyof ListOwnerBookingsErrors];
+
+export type ListOwnerBookingsResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: OwnerBookings;
+};
+
+export type ListOwnerBookingsResponse = ListOwnerBookingsResponses[keyof ListOwnerBookingsResponses];
+
+export type GetOwnerBookingData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/owner/bookings/{id}';
+};
+
+export type GetOwnerBookingErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type GetOwnerBookingError = GetOwnerBookingErrors[keyof GetOwnerBookingErrors];
+
+export type GetOwnerBookingResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: OwnerBooking;
+};
+
+export type GetOwnerBookingResponse = GetOwnerBookingResponses[keyof GetOwnerBookingResponses];
+
+export type CancelBookingData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/owner/bookings/{id}/cancel';
+};
+
+export type CancelBookingErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type CancelBookingError = CancelBookingErrors[keyof CancelBookingErrors];
+
+export type CancelBookingResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: OwnerBooking;
+};
+
+export type CancelBookingResponse = CancelBookingResponses[keyof CancelBookingResponses];
+
+export type OwnerLoginData = {
+    body: LoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/owner/login';
+};
+
+export type OwnerLoginErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+    /**
+     * Client error
+     */
+    429: ApiError;
+};
+
+export type OwnerLoginError = OwnerLoginErrors[keyof OwnerLoginErrors];
+
+export type OwnerLoginResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Authenticated;
+};
+
+export type OwnerLoginResponse = OwnerLoginResponses[keyof OwnerLoginResponses];
+
+export type OwnerLogoutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/owner/logout';
+};
+
+export type OwnerLogoutErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type OwnerLogoutError = OwnerLogoutErrors[keyof OwnerLogoutErrors];
+
+export type OwnerLogoutResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: LoggedOut;
+};
+
+export type OwnerLogoutResponse = OwnerLogoutResponses[keyof OwnerLogoutResponses];
+
+export type ListOwnerMeetingTypesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/owner/meeting-types';
+};
+
+export type ListOwnerMeetingTypesErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type ListOwnerMeetingTypesError = ListOwnerMeetingTypesErrors[keyof ListOwnerMeetingTypesErrors];
+
+export type ListOwnerMeetingTypesResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: OwnerMeetingTypes;
+};
+
+export type ListOwnerMeetingTypesResponse = ListOwnerMeetingTypesResponses[keyof ListOwnerMeetingTypesResponses];
+
+export type CreateMeetingTypeData = {
+    body: CreateMeetingTypeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/owner/meeting-types';
+};
+
+export type CreateMeetingTypeErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type CreateMeetingTypeError = CreateMeetingTypeErrors[keyof CreateMeetingTypeErrors];
+
+export type CreateMeetingTypeResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: MeetingTypeResult;
+};
+
+export type CreateMeetingTypeResponse = CreateMeetingTypeResponses[keyof CreateMeetingTypeResponses];
+
+export type ReplaceMeetingTypeData = {
+    body: ReplaceMeetingTypeRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/owner/meeting-types/{id}';
+};
+
+export type ReplaceMeetingTypeErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+};
+
+export type ReplaceMeetingTypeError = ReplaceMeetingTypeErrors[keyof ReplaceMeetingTypeErrors];
+
+export type ReplaceMeetingTypeResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: MeetingTypeResult;
+};
+
+export type ReplaceMeetingTypeResponse = ReplaceMeetingTypeResponses[keyof ReplaceMeetingTypeResponses];
+
+export type GetOwnerScheduleData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/owner/schedule';
+};
+
+export type GetOwnerScheduleErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type GetOwnerScheduleError = GetOwnerScheduleErrors[keyof GetOwnerScheduleErrors];
+
+export type GetOwnerScheduleResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: WeeklySchedule;
+};
+
+export type GetOwnerScheduleResponse = GetOwnerScheduleResponses[keyof GetOwnerScheduleResponses];
+
+export type ReplaceWeeklyScheduleData = {
+    body: ReplaceWeeklyScheduleRequest;
+    path?: never;
+    query?: never;
+    url: '/api/owner/schedule';
+};
+
+export type ReplaceWeeklyScheduleErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type ReplaceWeeklyScheduleError = ReplaceWeeklyScheduleErrors[keyof ReplaceWeeklyScheduleErrors];
+
+export type ReplaceWeeklyScheduleResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: WeeklySchedule;
+};
+
+export type ReplaceWeeklyScheduleResponse = ReplaceWeeklyScheduleResponses[keyof ReplaceWeeklyScheduleResponses];
+
+export type DeleteScheduleExceptionData = {
+    body?: never;
+    path: {
+        date: string;
+    };
+    query: {
+        expectedVersion: number;
+    };
+    url: '/api/owner/schedule/exceptions/{date}';
+};
+
+export type DeleteScheduleExceptionErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type DeleteScheduleExceptionError = DeleteScheduleExceptionErrors[keyof DeleteScheduleExceptionErrors];
+
+export type DeleteScheduleExceptionResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: ScheduleException;
+};
+
+export type DeleteScheduleExceptionResponse = DeleteScheduleExceptionResponses[keyof DeleteScheduleExceptionResponses];
+
+export type GetScheduleExceptionData = {
+    body?: never;
+    path: {
+        date: string;
+    };
+    query?: never;
+    url: '/api/owner/schedule/exceptions/{date}';
+};
+
+export type GetScheduleExceptionErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type GetScheduleExceptionError = GetScheduleExceptionErrors[keyof GetScheduleExceptionErrors];
+
+export type GetScheduleExceptionResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: ScheduleException;
+};
+
+export type GetScheduleExceptionResponse = GetScheduleExceptionResponses[keyof GetScheduleExceptionResponses];
+
+export type ReplaceScheduleExceptionData = {
+    body: ReplaceScheduleExceptionRequest;
+    path: {
+        date: string;
+    };
+    query?: never;
+    url: '/api/owner/schedule/exceptions/{date}';
+};
+
+export type ReplaceScheduleExceptionErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+    /**
+     * Access is forbidden.
+     */
+    403: ApiError;
+};
+
+export type ReplaceScheduleExceptionError = ReplaceScheduleExceptionErrors[keyof ReplaceScheduleExceptionErrors];
+
+export type ReplaceScheduleExceptionResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: ScheduleException;
+};
+
+export type ReplaceScheduleExceptionResponse = ReplaceScheduleExceptionResponses[keyof ReplaceScheduleExceptionResponses];
+
+export type OwnerSessionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/owner/session';
+};
+
+export type OwnerSessionErrors = {
+    /**
+     * Access is unauthorized.
+     */
+    401: ApiError;
+};
+
+export type OwnerSessionError = OwnerSessionErrors[keyof OwnerSessionErrors];
+
+export type OwnerSessionResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Authenticated;
+};
+
+export type OwnerSessionResponse = OwnerSessionResponses[keyof OwnerSessionResponses];

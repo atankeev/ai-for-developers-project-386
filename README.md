@@ -157,3 +157,24 @@ PR и теги, созданные этим токеном, не запуска�
 ## О Хекслете
 
 [Хекслет](https://ru.hexlet.io/) — школа программирования: авторские программы обучения с практикой, поддержкой наставников и реальными проектами, которые остаются в резюме. Этот репозиторий — один из таких проектов.
+
+### Owner access
+
+The server requires `OWNER_LOGIN`, `OWNER_PASSWORD_HASH`, `OWNER_COOKIE_SECRET`
+(at least 32 characters, different from the password), and `OWNER_ALLOWED_ORIGIN`
+(the exact site origin including scheme and port, without a trailing slash).
+There are no default credentials. Set these in your shell or hosting secret settings.
+Run `mise exec -- npm run password:hash` in a terminal to generate a scrypt hash;
+password input is hidden and never passed as a command argument. Generate the
+independent cookie secret with a cryptographically secure random generator.
+
+Local development uses `OWNER_ALLOWED_ORIGIN=http://127.0.0.1:5173` and HTTP.
+Open `/owner` directly to enter the cabinet. Published deployments use one site/API
+domain, HTTPS terminated by the host, and the exact HTTPS origin. `TRUSTED_PROXIES`
+is an optional comma-separated list of trusted proxy IP addresses or CIDRs; leave
+it unset for direct connections. Configure only your actual hosting proxy addresses
+so forwarded client addresses and HTTPS are trusted only from those proxies.
+
+Sessions and application data belong to one process and disappear on restart.
+Sessions expire twelve hours after login; activity does not extend them. Logout
+ends the current session only. Do not run multiple independent API replicas.
