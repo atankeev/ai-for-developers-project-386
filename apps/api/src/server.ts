@@ -1,6 +1,13 @@
 import { buildApp } from './app.js';
+import { registerWeb } from './web.js';
+import { containerOwnerConfig } from './container.js';
 
-const app = buildApp({ logger: true });
+const production = process.env.NODE_ENV === 'production';
+const app = buildApp({
+  logger: true,
+  config: production ? await containerOwnerConfig() : undefined,
+});
+if (production) await registerWeb(app);
 const port = Number(process.env.PORT ?? 3000);
 
 async function shutdown() {
